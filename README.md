@@ -20,7 +20,7 @@ This app is created to be used as screensaver with idle system detect to run ful
 ### <ins>So for both platforms make sure to disable "native" screensaver to prevent conflicts!</ins>
 
 After app startup check it's settings in tray menu:
-<img align="center" width="100%" src="https://raw.githubusercontent.com/drlight17/ribbons-electron/master/2.png">
+<img align="center" width="200" src="https://raw.githubusercontent.com/drlight17/ribbons-electron/refs/heads/main/2.png">
 
 ## For developers
 Build depends on the platform as it uses the system idle detect function.
