@@ -10,12 +10,12 @@ Windows 7/2008, Linux with modern kernel version (5.x)
 
 | Platform   | Type | Download link                               | File size   |
 |-------------|--------------|---------------------------------------------------|----------------|
-| 🖥 Windows   | `.exe`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.1.0-alpha/Ribbons.screensaver.Setup.0.1.0-alpha.exe)   | 68.5 MB          |
-| 🐧 Debian/Ubuntu Linux     | `.deb`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.1.0-alpha/ribbons-electron_0.1.0-alpha_amd64.deb)     | 76.5 MB          |
-| 🐧 RHEL/Fedora Linux     | `.rpm`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.1.0-alpha/ribbons-electron-0.1.0-alpha.x86_64.rpm)    | 77 MB          |
-| 🐧 Linux AppImage    | `.AppImage`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.1.0-alpha/Ribbons.screensaver-0.1.0-alpha.AppImage)     | 106 MB          |
-| 🌐 Linux Archive       | `.tar.gz`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.1.0-alpha/ribbons-electron-0.1.0-alpha.tar.gz)      | 101 MB          |
-| 🌐 Windows Archive       | `.zip`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.1.0-alpha/Ribbons.screensaver-0.1.0-alpha-win.zip)       | 93.4 MB          |
+| 🖥 Windows x64   | `.exe`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.1.0-alpha/Ribbons.screensaver.Setup.0.1.0-alpha.exe)   | 68.5 MB          |
+| 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.1.0-alpha/ribbons-electron_0.1.0-alpha_amd64.deb)     | 76.5 MB          |
+| 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.1.0-alpha/ribbons-electron-0.1.0-alpha.x86_64.rpm)    | 77 MB          |
+| 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.1.0-alpha/Ribbons.screensaver-0.1.0-alpha.AppImage)     | 106 MB          |
+| 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.1.0-alpha/ribbons-electron-0.1.0-alpha.tar.gz)      | 101 MB          |
+| 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.1.0-alpha/Ribbons.screensaver-0.1.0-alpha-win.zip)       | 93.4 MB          |
 
 
 ---
