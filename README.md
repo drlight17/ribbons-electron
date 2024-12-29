@@ -13,7 +13,7 @@ All app settings are saved in the local user folder in file config.json:
 - Linux `~/.config/Ribbons screensaver`
 
 ## Usage
-This app is created to be used as screensaver with idle system detect to run fullscreen animation. For current alpha version it is't supposed to be:
+This app is created to be used as screensaver with idle system detect to run fullscreen animation. For current alpha version it isn't supposed to be:
 - "native" windows scr app as there are no native winapi preview and settings implementation;
 - "native" linux xscreensaver app as there are no plans to develop something for xscreensaver api;
 
