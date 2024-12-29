@@ -1,9 +1,10 @@
 # <h1><img align="center" width="100" height="100" src="https://raw.githubusercontent.com/drlight17/ribbons-electron/master/icon.png"> Ribbons Screensaver </h1>
 Famous windows-like Ribbons screensaver made with js and Electron wrapped for multi platform support
 
+<img align="center" width="100%" src="https://raw.githubusercontent.com/drlight17/ribbons-electron/master/robbons-example.gif">
 
 ## Minimum OS requirements
-MacOS 10.15 Catalina, Windows 7/2008, Linux with modern kernel version (5.x)
+Windows 7/2008, Linux with modern kernel version (5.x)
 
 
 ## Supported settings
@@ -58,5 +59,7 @@ Also check [package.json.linux](package.json.linux) and [package.json.windows](p
 
 
 ## Special thanks to:
-- [madve2](https://github.com/madve2) for his [electron-screensaver-seed repo](https://github.com/madve2/electron-screensaver-seed)
-- [fadyehabamer](https://github.com/fadyehabamer) for his [Ribbons-Screensaver repo](https://github.com/fadyehabamer/Ribbons-Screensaver) that is the basis for graphics (you failed with PWA, I made it with Electron)
+- [madve2](https://github.com/madve2) for his [electron-screensaver-seed repo](https://github.com/madve2/electron-screensaver-seed) that was partly used to create initial Electron app
+- [fadyehabamer](https://github.com/fadyehabamer) for his [Ribbons-Screensaver repo](https://github.com/fadyehabamer/Ribbons-Screensaver) that is the basis for graphics (he "failed with PWA", I made it with Electron =))) )
+
+All rights belongs to their authors!
