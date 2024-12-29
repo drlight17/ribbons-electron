@@ -1,15 +1,24 @@
 # <h1><img align="center" width="100" height="100" src="https://raw.githubusercontent.com/drlight17/ribbons-electron/master/icon.png"> Ribbons Screensaver </h1>
 Famous windows-like Ribbons screensaver made with js and Electron wrapped for multi platform support
 
+
 ## Minimum OS requirements
 MacOS 10.15 Catalina, Windows 7/2008, Linux with modern kernel version (5.x)
+
 
 ## Supported settings
 All app settings are saved in the local user folder in file config.json:
 - Windows 7 and newer: `%AppData%\Ribbons screensaver`
 - Linux `~/.config/Ribbons screensaver`
 
-# For developers
+## Usage
+This app is created to be used as screensaver with idle system detect to run fullscreen animation. For current alpha version it is't supposed to be:
+- "native" windows scr app as there are no native winapi preview and settings implementation;
+- "native" linux xscreensaver app as there are no plans to develop something for xscreensaver api;
+
+### <ins>So for both platforms make sure to disable "native" screensaver to prevent conflicts!</ins>
+
+## For developers
 Build depends on the platform as it uses the system idle detect function.
 
 For Windows:
