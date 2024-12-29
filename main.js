@@ -25,9 +25,11 @@ const fs = require("fs");
 const { join } = require('path');
 const SystemIdleTime = require('desktop-idle');
 const gotTheLock = app.requestSingleInstanceLock();
+const activeWin = require('active-win');
 
 let mainWindow = [];
 let displays = null;
+
 
 // Stay open only if the screensaver should be shown (/s param)
 // We don't implement /c (configure) and /p (preview) for now... 
@@ -368,12 +370,34 @@ if (!gotTheLock) {
                 //let time_left = store.get('idle_time')-Math.round(SystemIdleTime.getIdleTime());
                 //console.log('Time before screensaver run: ' + time_left + 's')
                 if (SystemIdleTime.getIdleTime() > store.get('idle_time')) {
-                  displays.forEach((display) => {
-                    if (!mainWindow[display.id].isVisible()) { 
-                      mainWindow[display.id].setFullScreen(true);
-                      mainWindow[display.id].show();
+                  (async () => {
+                    const activeWindow = await activeWin();
+
+                    if (!activeWindow) {
+                      console.log('Cant get active window');
+                      return;
                     }
-                  })
+
+                    const { bounds } = activeWindow;
+                    const primaryDisplay = screen.getPrimaryDisplay();
+                    const { bounds: screenBounds } = primaryDisplay;
+
+                    const isFullscreen = 
+                      bounds.x === screenBounds.x &&
+                      bounds.y === screenBounds.y &&
+                      bounds.width === screenBounds.width &&
+                      bounds.height === screenBounds.height;
+                    // check if current active window is not fullscreen
+                    if (!isFullscreen) {
+                      //console.log('Current active window is not fullscreen. Run screensaver!');
+                      displays.forEach((display) => {
+                        if (!mainWindow[display.id].isVisible()) { 
+                          mainWindow[display.id].setFullScreen(true);
+                          mainWindow[display.id].show();
+                        }
+                      })
+                    }
+                   })();
                 }
               }, activity_check_interval*1000);
             //}
@@ -413,6 +437,7 @@ if (!gotTheLock) {
         app.relaunch();
         app.exit()
     }
+
 
     function setRunAtStartup (flag, store) {
         //store.set('run_at_startup',flag);
