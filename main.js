@@ -1,4 +1,4 @@
-const { app, clipboard, BrowserWindow, Menu, Tray, nativeImage, ipcMain, screen, nativeTheme } = require('electron/main')
+const { app, clipboard, BrowserWindow, Menu, Tray, nativeImage, ipcMain, screen, nativeTheme, dialog } = require('electron/main')
 const path = require("path");
 
 const getResourceDirectory = () => {
@@ -20,12 +20,29 @@ const isMac = process.platform === 'darwin'
 const isWindows = process.platform === 'win32'
 const isLinux = process.platform === 'linux'
 const Store = require('electron-store');
-const theme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+const system_theme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
 const fs = require("fs");
 const { join } = require('path');
 const SystemIdleTime = require('desktop-idle');
 const gotTheLock = app.requestSingleInstanceLock();
 const activeWin = require('active-win');
+
+
+// list of known desktop manager processes, may be extended
+const desktopProcesses = [
+    'explorer.exe', // Windows
+    'Finder', // macOS
+    'gnome-shell', // GNOME Linux
+    'plasmashell', // KDE Linux
+    'marco', // Linux Mint Mate
+    'mate', // Linux Mint Mate
+    'muffin', // Linux Mint Cinnamon
+    'cinnamon', // Linux Mint Cinnamon
+    'xfwm4', // Xfce Linux
+    'openbox', // Openbox
+    'i3', // i3wm
+    'Desktop', // common
+];
 
 let mainWindow = [];
 let displays = null;
@@ -57,16 +74,22 @@ if (!gotTheLock) {
     app.exit(0);
 } else {
     app.on('second-instance', (event) => {
-      if (mainWindow) {
-        //if (win.isMinimized()) win.restore();
-        //mainWindow.show();
-        //mainWindow.focus();
-        //if (isMac) app.dock.show();
-      }
+      dialog.showErrorBox('Error ', 'Screensaver is already run! Check tray icon!');
+      /*if (mainWindow) {
+        if (win.isMinimized()) win.restore();
+        mainWindow.show();
+        mainWindow.focus();
+        if (isMac) app.dock.show();
+      }*/
     })
     try {
 
         const store = new Store();
+
+        // check if theme is configured and set default auto value if not
+        if (!store.get('theme')) {
+          store.set('theme', 'auto');
+        }
 
         // check if max_visible_ribbons is configured and set default 3 value if not
         if (!store.get('max_visible_ribbons')) {
@@ -84,7 +107,6 @@ if (!gotTheLock) {
         } else {
           setRunAtStartup (true, store);
         }
-        //store.set('run_at_startup',true)
         
         //let iconPath = path.join(__dirname,store.get('app_icon_name')||'iconTemplate.png');
         let icon = nativeImage.createFromPath(iconPath); // template with center transparency
@@ -109,18 +131,206 @@ if (!gotTheLock) {
                 })
               },
             },
-            /*{
-              label: 'hide',
-              click: () => {
-                displays.forEach((display) => {
-                    mainWindow[display.id].hide();
-                })
-              },
-              role : "hide"
-            },*/
+            { type: 'separator' },
+            {
+              label: 'Theme',
+              submenu: [
+                {
+                  label: 'Auto',
+                  type: 'checkbox',
+                  checked: ((store.get('theme') === 'auto') || (!store.get('theme'))) ? true : false,
+                  click: () => {
+                    store.set('theme','auto');
+                    app.relaunch();
+                    app.exit(0);
+                  }
+                },
+                {
+                  label: 'Light',
+                  type: 'checkbox',
+                  checked: store.get('theme') === 'light' ? true : false,
+                  click: () => {
+                    store.set('theme','light');
+                    app.relaunch();
+                    app.exit(0);
+                  }
+                },
+                {
+                  label: 'Dark',
+                  type: 'checkbox',
+                  checked: store.get('theme') === 'dark' ? true : false,
+                  click: () => {
+                    store.set('theme','dark');
+                    app.relaunch();
+                    app.exit(0);
+                  }
+                },
+              ]
+            },
+            {
+              label: 'Ribbons color',
+              submenu: [
+                {
+                  label: 'Random',
+                  type: 'checkbox',
+                  checked: ((store.get('single_color') === false) || (!store.get('single_color')))  ? true : false,
+                  click: () => {
+                    store.set('single_color',false);
+                    app.relaunch();
+                    app.exit(0);
+                  }
+                },
+                { type: 'separator' },
+                {
+                  label: 'Grey',
+                  type: 'checkbox',
+                  checked: store.get('single_color') === 666 ? true : false,
+                  click: () => {
+                    store.set('single_color',666);
+                    app.relaunch();
+                    app.exit(0);
+                  }
+                },
+                {
+                  label: 'Red',
+                  type: 'checkbox',
+                  checked: store.get('single_color') === 360 ? true : false,
+                  click: () => {
+                    store.set('single_color',0);
+                    app.relaunch();
+                    app.exit(0);
+                  }
+                },
+                {
+                  label: 'Yellow',
+                  type: 'checkbox',
+                  checked: store.get('single_color') === 60 ? true : false,
+                  click: () => {
+                    store.set('single_color',60);
+                    app.relaunch();
+                    app.exit(0);
+                  }
+                },
+                {
+                  label: 'Green',
+                  type: 'checkbox',
+                  checked: store.get('single_color') === 120 ? true : false,
+                  click: () => {
+                    store.set('single_color',120);
+                    app.relaunch();
+                    app.exit(0);
+                  }
+                },
+                {
+                  label: 'Cyan',
+                  type: 'checkbox',
+                  checked: store.get('single_color') === 180 ? true : false,
+                  click: () => {
+                    store.set('single_color',180);
+                    app.relaunch();
+                    app.exit(0);
+                  }
+                },
+                {
+                  label: 'Blue',
+                  type: 'checkbox',
+                  checked: store.get('single_color') === 240 ? true : false,
+                  click: () => {
+                    store.set('single_color',240);
+                    app.relaunch();
+                    app.exit(0);
+                  }
+                },
+                {
+                  label: 'Magenta',
+                  type: 'checkbox',
+                  checked: store.get('single_color') === 300 ? true : false,
+                  click: () => {
+                    store.set('single_color',300);
+                    app.relaunch();
+                    app.exit(0);
+                  }
+                },
+                { type: 'separator' },
+                {
+                  label: 'Custom',
+                  type: 'checkbox',
+                  enabled: false,
+                  checked: ((store.get('single_color') !== false) && (store.get('single_color') !== 0)  && (store.get('single_color') !== 60) && (store.get('single_color') !== 120)  && (store.get('single_color') !== 180)  && (store.get('single_color') !== 240)  && (store.get('single_color') !== 300) && (store.get('single_color') !== 666)  && (store.get('single_color')))  ? true : false,
+                  click: (event) => {
+                    event.preventDefault();
+                  }
+                },
+              ]
+            },
+            {
+              label: 'Max visible ribbons',
+              submenu: [
+                {
+                  label: '1',
+                  type: 'checkbox',
+                  checked: store.get('max_visible_ribbons') === 1 ? true : false,
+                  click: () => {
+                    store.set('max_visible_ribbons',1);
+                    app.relaunch();
+                    app.exit(0);
+                  }
+                },
+                {
+                  label: '2',
+                  type: 'checkbox',
+                  checked: store.get('max_visible_ribbons') === 2 ? true : false,
+                  click: () => {
+                    store.set('max_visible_ribbons',2);
+                    app.relaunch();
+                    app.exit(0);
+                  }
+                },
+                {
+                  label: '3',
+                  type: 'checkbox',
+                  checked: store.get('max_visible_ribbons') === 3 ? true : false,
+                  click: () => {
+                    store.set('max_visible_ribbons',3);
+                    app.relaunch();
+                    app.exit(0);
+                  }
+                },
+                {
+                  label: '4',
+                  type: 'checkbox',
+                  checked: store.get('max_visible_ribbons') === 4 ? true : false,
+                  click: () => {
+                    store.set('max_visible_ribbons',4);
+                    app.relaunch();
+                    app.exit(0);
+                  }
+                },
+                {
+                  label: '5',
+                  type: 'checkbox',
+                  checked: store.get('max_visible_ribbons') === 5 ? true : false,
+                  click: () => {
+                    store.set('max_visible_ribbons',5);
+                    app.relaunch();
+                    app.exit(0);
+                  }
+                },
+              ]
+            },
             {
               label: 'Max idle time',
               submenu: [
+                /*{
+                  label: '5 sec dev',
+                  type: 'checkbox',
+                  checked: store.get('idle_time') === 5 ? true : false,
+                  click: () => {
+                    store.set('idle_time',5);
+                    app.relaunch();
+                    app.exit(0);
+                  }
+                },*/
                 {
                   label: '30 sec',
                   type: 'checkbox',
@@ -134,7 +344,7 @@ if (!gotTheLock) {
                 {
                   label: '1 min',
                   type: 'checkbox',
-                  checked: store.get('idle_time') === 60 ? true : false,
+                  checked: ((store.get('idle_time') === 60) || (!store.get('idle_time'))) ? true : false,
                   click: () => {
                     store.set('idle_time',60);
                     app.relaunch();
@@ -173,68 +383,6 @@ if (!gotTheLock) {
                 },
               ]
             },
-
-            {
-              label: 'Max visible ribbons',
-              submenu: [
-                {
-                  label: '1',
-                  type: 'checkbox',
-                  checked: store.get('max_visible_ribbons') === 1 ? true : false,
-                  click: () => {
-                    store.set('max_visible_ribbons',1);
-                    //console.log('1 ribbon visible');
-                    app.relaunch();
-                    app.exit(0);
-                  }
-                },
-                {
-                  label: '2',
-                  type: 'checkbox',
-                  checked: store.get('max_visible_ribbons') === 2 ? true : false,
-                  click: () => {
-                    store.set('max_visible_ribbons',2);
-                    //console.log('2 ribbons visible');
-                    app.relaunch();
-                    app.exit(0);
-                  }
-                },
-                {
-                  label: '3',
-                  type: 'checkbox',
-                  checked: store.get('max_visible_ribbons') === 3 ? true : false,
-                  click: () => {
-                    store.set('max_visible_ribbons',3);
-                    //console.log('3 ribbons visible');
-                    app.relaunch();
-                    app.exit(0);
-                  }
-                },
-                {
-                  label: '4',
-                  type: 'checkbox',
-                  checked: store.get('max_visible_ribbons') === 4 ? true : false,
-                  click: () => {
-                    store.set('max_visible_ribbons',4);
-                    //console.log('4 ribbons visible');
-                    app.relaunch();
-                    app.exit(0);
-                  }
-                },
-                {
-                  label: '5',
-                  type: 'checkbox',
-                  checked: store.get('max_visible_ribbons') === 5 ? true : false,
-                  click: () => {
-                    store.set('max_visible_ribbons',5);
-                    //console.log('5 ribbons visible');
-                    app.relaunch();
-                    app.exit(0);
-                  }
-                },
-              ]
-            },
-
             { type: 'separator' },
             {
               // set run at startup
@@ -262,13 +410,6 @@ if (!gotTheLock) {
               },
             }
         ];
-
-        // Quit when all windows are closed.
-        /*app.on('window-all-closed', function() {
-          if (!isMac) {
-            app.quit();
-          }
-        });*/
 
 
         // This method will be called when Electron has finished
@@ -329,9 +470,13 @@ if (!gotTheLock) {
                 // and load the index.html of the app.
                 mainWindow[display.id].loadFile('index.html');
 
-                // send max_visible_ribbons to all windows
+                // send options to all windows
                 mainWindow[display.id].webContents.once('did-finish-load', () => {
-                  mainWindow[display.id].webContents.send('send-max_visible_ribbons', store.get('max_visible_ribbons'));
+                  let optionsArray = [];
+                  optionsArray["ribbonCount"] = store.get('max_visible_ribbons');
+                  optionsArray["singleColor"] = store.get('single_color');
+                  optionsArray["theme"] = store.get('theme') == 'auto' ? system_theme : store.get('theme');
+                  mainWindow[display.id].webContents.send('send-options',optionsArray);
                 });
 
                 // Hide the menu
@@ -374,7 +519,7 @@ if (!gotTheLock) {
                     const activeWindow = await activeWin();
 
                     if (!activeWindow) {
-                      console.log('Cant get active window');
+                      console.log('Cannot get active window. Screensaver will not run.');
                       return;
                     }
 
@@ -382,22 +527,22 @@ if (!gotTheLock) {
                     const primaryDisplay = screen.getPrimaryDisplay();
                     const { bounds: screenBounds } = primaryDisplay;
 
-                    const isFullscreen = 
+                    const isFullscreen =
                       bounds.x === screenBounds.x &&
                       bounds.y === screenBounds.y &&
                       bounds.width === screenBounds.width &&
                       bounds.height === screenBounds.height;
-                    // check if current active window is not fullscreen
-                    if (!isFullscreen) {
-                      //console.log('Current active window is not fullscreen. Run screensaver!');
+
+                    if (!isFullscreen || (isDesktopWindow(activeWindow))) {
+                      //console.log('Current active window is not fullscreen or desktop. Running screensaver.');
                       displays.forEach((display) => {
-                        if (!mainWindow[display.id].isVisible()) { 
-                          mainWindow[display.id].setFullScreen(true);
-                          mainWindow[display.id].show();
-                        }
-                      })
+                          if (!mainWindow[display.id].isVisible()) {
+                              mainWindow[display.id].setFullScreen(true);
+                              mainWindow[display.id].show();
+                          }
+                      });
                     }
-                   })();
+                  })();
                 }
               }, activity_check_interval*1000);
             //}
@@ -436,6 +581,21 @@ if (!gotTheLock) {
         fs.unlinkSync(app.getPath('userData')+"/config.json")
         app.relaunch();
         app.exit()
+    }
+
+    // check desktop window
+    function isDesktopWindow(window) {
+        if (!window) return false;
+
+        const { owner, title } = window;
+
+        const isKnownDesktopProcess = desktopProcesses.some((process) =>
+            owner.name.toLowerCase().includes(process.toLowerCase())
+        );
+
+        const isEmptyTitle = !title || title.trim() === '';
+
+        return isKnownDesktopProcess || isEmptyTitle;
     }
 
 
@@ -481,32 +641,3 @@ if (!gotTheLock) {
         }
     }
 }
-
-
-
-
-
-
-/*let button = document.getElementById("button")
-button.addEventListener("click",()=>{
-    document.body.classList.toggle("light")
-})
-window.addEventListener("load",()=>{
-    // set default dark
-    document.body.classList.toggle("light")
-    registersw();
-})*/
-
-/*async function registersw(){
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-          navigator.serviceWorker.register('sw.js').then(function(registration) {
-            // Registration was successful
-            console.log('ServiceWorker registration successful with scope: ', registration.scope);
-          }, function(err) {
-            // registration failed :(
-            console.log('ServiceWorker registration failed: ', err);
-          });
-        });
-      }
-}*/

@@ -155,7 +155,9 @@
             // add animation effect to each ribbon section over time
             animateSections: true,
             // add blur shadow effect to each ribbon with radius
-            ribbonBlur: 10
+            ribbonBlur: 10,
+            // single color default is off (random ribbons colors)
+            singleColor: false
         };
         this._onDraw = this._onDraw.bind(this);
         this._onResize = this._onResize.bind(this);
@@ -234,13 +236,14 @@
             } else if (/^(bottom|max)$/i.test(this._options.verticalPosition)) {
                 starty = this._height - hide;
             }
-
+            //console.log(this._options.singleColor)
             // ribbon sections data
             var ribbon = [],
                 point1 = new Point(startx, starty),
                 point2 = new Point(startx, starty),
                 point3 = null,
-                color = Math.round(random(0, 360)),
+                color = this._options.singleColor ? this._options.singleColor : Math.round(random(0, 360)),
+                //color = Math.round(random(0, 360)),
                 // randomize delay between each ribbon appearance
                 delay = Math.random() * 4;
 
@@ -442,20 +445,33 @@ setTimeout( function() {
 }, 2000);
 
 
-ipcRenderer.on('send-max_visible_ribbons', (event, variable) => {
+ipcRenderer.on('send-options', (event, options) => {
+    document.body.classList.add(options["theme"]);
+
+    var colorCycleSpeed = 3;
+    var colorSaturation = "60%";
+
+    if ((options["singleColor"]) || (options["singleColor"] == 666)) {
+        colorCycleSpeed = 0;
+    }
+    if (options["singleColor"] == 666) {
+        colorSaturation = "0%";
+    }
+
     // ribbon appearance section
     new Ribbons({
-        colorSaturation: "60%", // set saturation
+        colorSaturation: colorSaturation, // set saturation
         colorBrightness: "50%", // set brightness
         colorAlpha: 1, // set semitransparency
-        colorCycleSpeed: 3, // set color cycle speed
+        colorCycleSpeed: colorCycleSpeed, // set color cycle speed
         verticalPosition: "random", // make vertical position random
         horizontalSpeed: 400, // set speed
-        ribbonCount: variable, // max onscreen visible ribbons
+        ribbonCount: options["ribbonCount"], // max onscreen visible ribbons
         strokeSize: 1, // add stroke
         parallaxAmount: -0.3, // lightn parallax
         animateSections: true, // section animation
-        ribbonBlur: 30 // set ribbon blur intensity
+        ribbonBlur: 30, // set ribbon blur intensity
+        singleColor: options["singleColor"]  // set ribbon single color in HSL(Hue, Saturation, Lightness) model
     });
 });
 // force hide mouse cursor
