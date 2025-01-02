@@ -41,7 +41,7 @@ const desktopProcesses = [
     'xfwm4', // Xfce Linux
     'openbox', // Openbox
     'i3', // i3wm
-    'Desktop', // common
+    'desktop', // common
 ];
 
 let mainWindow = [];
@@ -91,6 +91,11 @@ if (!gotTheLock) {
           store.set('theme', 'auto');
         }
 
+        // check if colorCycleSpeed is configured and set default 3 value if not
+        if (!store.get('color_cycle_speed')) {
+          store.set('color_cycle_speed', 3);
+        }
+
         // check if max_visible_ribbons is configured and set default 3 value if not
         if (!store.get('max_visible_ribbons')) {
           store.set('max_visible_ribbons', 3);
@@ -133,188 +138,250 @@ if (!gotTheLock) {
             },
             { type: 'separator' },
             {
-              label: 'Theme',
+              label: 'Visual options',
               submenu: [
                 {
-                  label: 'Auto',
-                  type: 'checkbox',
-                  checked: ((store.get('theme') === 'auto') || (!store.get('theme'))) ? true : false,
-                  click: () => {
-                    store.set('theme','auto');
-                    app.relaunch();
-                    app.exit(0);
-                  }
+                  label: 'Theme',
+                  submenu: [
+                    {
+                      label: 'Auto (default)',
+                      type: 'checkbox',
+                      checked: ((store.get('theme') === 'auto') || (!store.get('theme'))) ? true : false,
+                      click: () => {
+                        store.set('theme','auto');
+                        app.relaunch();
+                        app.exit(0);
+                      }
+                    },
+                    {
+                      label: 'Light',
+                      type: 'checkbox',
+                      checked: store.get('theme') === 'light' ? true : false,
+                      click: () => {
+                        store.set('theme','light');
+                        app.relaunch();
+                        app.exit(0);
+                      }
+                    },
+                    {
+                      label: 'Dark',
+                      type: 'checkbox',
+                      checked: store.get('theme') === 'dark' ? true : false,
+                      click: () => {
+                        store.set('theme','dark');
+                        app.relaunch();
+                        app.exit(0);
+                      }
+                    },
+                  ]
                 },
                 {
-                  label: 'Light',
-                  type: 'checkbox',
-                  checked: store.get('theme') === 'light' ? true : false,
-                  click: () => {
-                    store.set('theme','light');
-                    app.relaunch();
-                    app.exit(0);
-                  }
+                  label: 'Ribbons color',
+                  submenu: [
+                    {
+                      label: 'Random (default)',
+                      type: 'checkbox',
+                      checked: ((store.get('single_color') === false) || (!store.get('single_color')))  ? true : false,
+                      click: () => {
+                        store.set('single_color',false);
+                        app.relaunch();
+                        app.exit(0);
+                      }
+                    },
+                    {
+                      label: 'Tricolor edition ',
+                      type: 'checkbox',
+                      checked: store.get('single_color') === 667  ? true : false,
+                      click: () => {
+                        store.set('single_color',667);
+                        app.relaunch();
+                        app.exit(0);
+                      }
+                    },
+                    { type: 'separator' },
+                    {
+                      label: 'Grey',
+                      type: 'checkbox',
+                      checked: store.get('single_color') === 666 ? true : false,
+                      click: () => {
+                        store.set('single_color',666);
+                        app.relaunch();
+                        app.exit(0);
+                      }
+                    },
+                    {
+                      label: 'Red',
+                      type: 'checkbox',
+                      checked: store.get('single_color') === 360 ? true : false,
+                      click: () => {
+                        store.set('single_color',360);
+                        app.relaunch();
+                        app.exit(0);
+                      }
+                    },
+                    {
+                      label: 'Yellow',
+                      type: 'checkbox',
+                      checked: store.get('single_color') === 60 ? true : false,
+                      click: () => {
+                        store.set('single_color',60);
+                        app.relaunch();
+                        app.exit(0);
+                      }
+                    },
+                    {
+                      label: 'Green',
+                      type: 'checkbox',
+                      checked: store.get('single_color') === 120 ? true : false,
+                      click: () => {
+                        store.set('single_color',120);
+                        app.relaunch();
+                        app.exit(0);
+                      }
+                    },
+                    {
+                      label: 'Cyan',
+                      type: 'checkbox',
+                      checked: store.get('single_color') === 180 ? true : false,
+                      click: () => {
+                        store.set('single_color',180);
+                        app.relaunch();
+                        app.exit(0);
+                      }
+                    },
+                    {
+                      label: 'Blue',
+                      type: 'checkbox',
+                      checked: store.get('single_color') === 240 ? true : false,
+                      click: () => {
+                        store.set('single_color',240);
+                        app.relaunch();
+                        app.exit(0);
+                      }
+                    },
+                    {
+                      label: 'Magenta',
+                      type: 'checkbox',
+                      checked: store.get('single_color') === 300 ? true : false,
+                      click: () => {
+                        store.set('single_color',300);
+                        app.relaunch();
+                        app.exit(0);
+                      }
+                    },
+                    { type: 'separator' },
+                    {
+                      label: 'Custom',
+                      type: 'checkbox',
+                      enabled: false,
+                      checked: ((store.get('single_color') !== false) && (store.get('single_color') !== 0)  && (store.get('single_color') !== 60) && (store.get('single_color') !== 120)  && (store.get('single_color') !== 180)  && (store.get('single_color') !== 240)  && (store.get('single_color') !== 300) && (store.get('single_color') !== 666)  && (store.get('single_color')) && (store.get('single_color') !== 667))  ? true : false,
+                      click: (event) => {
+                        event.preventDefault();
+                      }
+                    },
+                  ]
                 },
                 {
-                  label: 'Dark',
-                  type: 'checkbox',
-                  checked: store.get('theme') === 'dark' ? true : false,
-                  click: () => {
-                    store.set('theme','dark');
-                    app.relaunch();
-                    app.exit(0);
-                  }
-                },
-              ]
-            },
-            {
-              label: 'Ribbons color',
-              submenu: [
-                {
-                  label: 'Random',
-                  type: 'checkbox',
-                  checked: ((store.get('single_color') === false) || (!store.get('single_color')))  ? true : false,
-                  click: () => {
-                    store.set('single_color',false);
-                    app.relaunch();
-                    app.exit(0);
-                  }
-                },
-                { type: 'separator' },
-                {
-                  label: 'Grey',
-                  type: 'checkbox',
-                  checked: store.get('single_color') === 666 ? true : false,
-                  click: () => {
-                    store.set('single_color',666);
-                    app.relaunch();
-                    app.exit(0);
-                  }
-                },
-                {
-                  label: 'Red',
-                  type: 'checkbox',
-                  checked: store.get('single_color') === 360 ? true : false,
-                  click: () => {
-                    store.set('single_color',0);
-                    app.relaunch();
-                    app.exit(0);
-                  }
-                },
-                {
-                  label: 'Yellow',
-                  type: 'checkbox',
-                  checked: store.get('single_color') === 60 ? true : false,
-                  click: () => {
-                    store.set('single_color',60);
-                    app.relaunch();
-                    app.exit(0);
-                  }
-                },
-                {
-                  label: 'Green',
-                  type: 'checkbox',
-                  checked: store.get('single_color') === 120 ? true : false,
-                  click: () => {
-                    store.set('single_color',120);
-                    app.relaunch();
-                    app.exit(0);
-                  }
+                  label: 'Max visible ribbons',
+                  enabled: (store.get('single_color') !== 667)  ? true : false,
+                  submenu: [
+                    {
+                      label: '1',
+                      type: 'checkbox',
+                      checked: store.get('max_visible_ribbons') === 1 ? true : false,
+                      click: () => {
+                        store.set('max_visible_ribbons',1);
+                        app.relaunch();
+                        app.exit(0);
+                      }
+                    },
+                    {
+                      label: '2',
+                      type: 'checkbox',
+                      checked: store.get('max_visible_ribbons') === 2 ? true : false,
+                      click: () => {
+                        store.set('max_visible_ribbons',2);
+                        app.relaunch();
+                        app.exit(0);
+                      }
+                    },
+                    {
+                      label: '3 (default)',
+                      type: 'checkbox',
+                      checked: store.get('max_visible_ribbons') === 3 ? true : false,
+                      click: () => {
+                        store.set('max_visible_ribbons',3);
+                        app.relaunch();
+                        app.exit(0);
+                      }
+                    },
+                    {
+                      label: '4',
+                      type: 'checkbox',
+                      checked: store.get('max_visible_ribbons') === 4 ? true : false,
+                      click: () => {
+                        store.set('max_visible_ribbons',4);
+                        app.relaunch();
+                        app.exit(0);
+                      }
+                    },
+                    {
+                      label: '5',
+                      type: 'checkbox',
+                      checked: store.get('max_visible_ribbons') === 5 ? true : false,
+                      click: () => {
+                        store.set('max_visible_ribbons',5);
+                        app.relaunch();
+                        app.exit(0);
+                      }
+                    },
+                  ]
                 },
                 {
-                  label: 'Cyan',
-                  type: 'checkbox',
-                  checked: store.get('single_color') === 180 ? true : false,
-                  click: () => {
-                    store.set('single_color',180);
-                    app.relaunch();
-                    app.exit(0);
-                  }
-                },
-                {
-                  label: 'Blue',
-                  type: 'checkbox',
-                  checked: store.get('single_color') === 240 ? true : false,
-                  click: () => {
-                    store.set('single_color',240);
-                    app.relaunch();
-                    app.exit(0);
-                  }
-                },
-                {
-                  label: 'Magenta',
-                  type: 'checkbox',
-                  checked: store.get('single_color') === 300 ? true : false,
-                  click: () => {
-                    store.set('single_color',300);
-                    app.relaunch();
-                    app.exit(0);
-                  }
-                },
-                { type: 'separator' },
-                {
-                  label: 'Custom',
-                  type: 'checkbox',
-                  enabled: false,
-                  checked: ((store.get('single_color') !== false) && (store.get('single_color') !== 0)  && (store.get('single_color') !== 60) && (store.get('single_color') !== 120)  && (store.get('single_color') !== 180)  && (store.get('single_color') !== 240)  && (store.get('single_color') !== 300) && (store.get('single_color') !== 666)  && (store.get('single_color')))  ? true : false,
-                  click: (event) => {
-                    event.preventDefault();
-                  }
-                },
-              ]
-            },
-            {
-              label: 'Max visible ribbons',
-              submenu: [
-                {
-                  label: '1',
-                  type: 'checkbox',
-                  checked: store.get('max_visible_ribbons') === 1 ? true : false,
-                  click: () => {
-                    store.set('max_visible_ribbons',1);
-                    app.relaunch();
-                    app.exit(0);
-                  }
-                },
-                {
-                  label: '2',
-                  type: 'checkbox',
-                  checked: store.get('max_visible_ribbons') === 2 ? true : false,
-                  click: () => {
-                    store.set('max_visible_ribbons',2);
-                    app.relaunch();
-                    app.exit(0);
-                  }
-                },
-                {
-                  label: '3',
-                  type: 'checkbox',
-                  checked: store.get('max_visible_ribbons') === 3 ? true : false,
-                  click: () => {
-                    store.set('max_visible_ribbons',3);
-                    app.relaunch();
-                    app.exit(0);
-                  }
-                },
-                {
-                  label: '4',
-                  type: 'checkbox',
-                  checked: store.get('max_visible_ribbons') === 4 ? true : false,
-                  click: () => {
-                    store.set('max_visible_ribbons',4);
-                    app.relaunch();
-                    app.exit(0);
-                  }
-                },
-                {
-                  label: '5',
-                  type: 'checkbox',
-                  checked: store.get('max_visible_ribbons') === 5 ? true : false,
-                  click: () => {
-                    store.set('max_visible_ribbons',5);
-                    app.relaunch();
-                    app.exit(0);
-                  }
+                  label: 'Ribbon color cycle speed',
+                  enabled: ((store.get('single_color') === false) || (!store.get('single_color')))  ? true : false,
+                  submenu: [
+                    {
+                      label: 'Slow',
+                      type: 'checkbox',
+                      checked: store.get('color_cycle_speed') === 1 ? true : false,
+                      click: () => {
+                        store.set('color_cycle_speed',1);
+                        app.relaunch();
+                        app.exit(0);
+                      }
+                    },
+                    {
+                      label: 'Normal (default)',
+                      type: 'checkbox',
+                      checked: store.get('color_cycle_speed') === 3 ? true : false,
+                      click: () => {
+                        store.set('color_cycle_speed',3);
+                        app.relaunch();
+                        app.exit(0);
+                      }
+                    },
+                    {
+                      label: 'Fast',
+                      type: 'checkbox',
+                      checked: store.get('color_cycle_speed') === 10 ? true : false,
+                      click: () => {
+                        store.set('color_cycle_speed',10);
+                        app.relaunch();
+                        app.exit(0);
+                      }
+                    },
+                    {
+                      label: 'Very fast',
+                      type: 'checkbox',
+                      checked: store.get('color_cycle_speed') === 20 ? true : false,
+                      click: () => {
+                        store.set('color_cycle_speed',20);
+                        app.relaunch();
+                        app.exit(0);
+                      }
+                    },
+                  ]
                 },
               ]
             },
@@ -342,7 +409,7 @@ if (!gotTheLock) {
                   }
                 },
                 {
-                  label: '1 min',
+                  label: '1 min (default)',
                   type: 'checkbox',
                   checked: ((store.get('idle_time') === 60) || (!store.get('idle_time'))) ? true : false,
                   click: () => {
@@ -392,6 +459,9 @@ if (!gotTheLock) {
               click: (option) => {
                   store.set('run_at_startup', option.checked);
                   setRunAtStartup (option.checked, store);
+                  // to fix cinnamon nemo desktop checked bug 
+                  app.relaunch();
+                  app.exit(0);
 
               },
             },
@@ -474,6 +544,7 @@ if (!gotTheLock) {
                 mainWindow[display.id].webContents.once('did-finish-load', () => {
                   let optionsArray = [];
                   optionsArray["ribbonCount"] = store.get('max_visible_ribbons');
+                  optionsArray["colorCycleSpeed"] = store.get('color_cycle_speed');
                   optionsArray["singleColor"] = store.get('single_color');
                   optionsArray["theme"] = store.get('theme') == 'auto' ? system_theme : store.get('theme');
                   mainWindow[display.id].webContents.send('send-options',optionsArray);
@@ -614,15 +685,20 @@ if (!gotTheLock) {
             } else {
               executable = app.getPath('exe');
             }
+            const isKDE = process.env.KDE_SESSION_VERSION !== undefined;
+            if (isKDE) {
+              executable = `sleep 10 && "` + executable + `"`;
+            }
             let shortcut_contents = `[Desktop Entry]
-        Categories=Utility;
-        Comment=Windows like ribbons screensaver app
-        Exec=sleep 15 && "`+executable+`"
-        Name=Ribbons screensaver
-        StartupWMClass=Ribbons screensaver
-        Terminal=false
-        Type=Application
-        Icon=ribbons-electron`;
+Categories=Utility;
+Comment=Windows like ribbons screensaver app
+Exec=`+executable+`
+Name=Ribbons screensaver
+StartupWMClass=Ribbons screensaver
+Terminal=false
+Type=Application
+Icon=ribbons-electron
+X-GNOME-Autostart-Delay=10`;
             if (!fs.existsSync(app.getPath('home')+"/.config/autostart/ribbons-electron.desktop")) {
               fs.writeFileSync(app.getPath('home')+"/.config/autostart/ribbons-electron.desktop",shortcut_contents, 'utf-8');
             }

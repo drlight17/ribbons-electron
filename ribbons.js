@@ -133,6 +133,7 @@
         this._height = 0;
         this._scroll = 0;
         this._ribbons = [];
+        this._saved_color_index = 0;
         this._options = {
             // ribbon color HSL saturation amount
             colorSaturation: "80%",
@@ -217,6 +218,10 @@
 
         // Create a new random ribbon and to the list
         addRibbon: function() {
+            // tricolor
+            if (this._options.singleColor === 667 ) {
+                this._options.ribbonCount = 3;
+            }
             // movement data
             var dir = (Math.round(random(1, 9)) > 5) ? "right" : "left",
                 stop = 1000,
@@ -238,16 +243,33 @@
             }
             //console.log(this._options.singleColor)
             // ribbon sections data
+            // tricolor
+            if (this._options.singleColor === 667 ) {
+                var hues = [667, 240, 360];
+                if (this._saved_color_index >= hues.length) {
+                    this._saved_color_index = 0;
+                }
+                var color = hues[this._saved_color_index]
+            } else if (this._options.singleColor) {
+                var color = this._options.singleColor
+            } else {
+                var color = Math.round(random(0, 360));
+            }
+
+
             var ribbon = [],
                 point1 = new Point(startx, starty),
                 point2 = new Point(startx, starty),
                 point3 = null,
-                color = this._options.singleColor ? this._options.singleColor : Math.round(random(0, 360)),
+                //color = this._options.singleColor ? this._options.singleColor : Math.round(random(0, 360)),
                 //color = Math.round(random(0, 360)),
                 // randomize delay between each ribbon appearance
                 delay = Math.random() * 4;
 
+
+
             // buils ribbon sections
+
             while (true) {
                 if (stop <= 0) break;
                 stop--;
@@ -281,8 +303,14 @@
                 point1.copy(point2);
                 point2.copy(point3);
 
+
                 delay += 4;
                 color += this._options.colorCycleSpeed;
+                
+            }
+            // tricolor
+            if (this._options.singleColor === 667 ) {
+                this._saved_color_index++;
             }
             this._ribbons.push(ribbon);
         },
@@ -293,7 +321,7 @@
                     return true; // done
                 }
                 if (section.delay <= 0) {
-                    section.phase += 0.014; // время до исчезания хвоста ленты 
+                    section.phase += 0.014;
                     section.alpha = Math.sin(section.phase) * 1;
                     section.alpha = (section.alpha <= 0) ? 0 : section.alpha;
                     section.alpha = (section.alpha >= 1) ? 1 : section.alpha;
@@ -317,9 +345,16 @@
                 } else {
                     section.delay -= 0.5;
                 }
-
-                var s = this._options.colorSaturation,
-                    l = this._options.colorBrightness,
+                
+                if (section.color === 667) {
+                    var s = "0%";
+                    var l = "100%"  
+                } else {
+                    var s = this._options.colorSaturation;
+                    var l = this._options.colorBrightness;
+                }
+                var //s = this._options.colorSaturation,
+                    //l = this._options.colorBrightness,
                     c = "hsla(" + section.color + ", " + s + ", " + l + ", " + section.alpha + " )";
 
                 this._context.save();
@@ -353,19 +388,21 @@
 
         // Draw ribbons
         _onDraw: function () {
-            for (var i = 0; i < this._ribbons.length; ++i) {
+
+            for (var i = 0; i < this._ribbons.length; ++i) {                
                 if (!this._ribbons[i]) {
                     this._ribbons.splice(i, 1);
                     i--;
                 }
             }
-
+            
             this._context.clearRect(0, 0, this._width, this._height);
 
+            
             for (var a = 0; a < this._ribbons.length; ++a) {
+
                 var ribbon = this._ribbons[a];
 
-                // Проверка, что ленточка корректна
                 if (!ribbon || !Array.isArray(ribbon) || ribbon.length === 0) {
                     this._ribbons[a] = null;
                     continue;
@@ -373,7 +410,6 @@
 
                 var numSections = ribbon.length;
                 var numDone = 0;
-
 
                 for (var b = 0; b < numSections; ++b) {
                     if (this._drawRibbonSection(ribbon[b])) {
@@ -448,16 +484,16 @@ setTimeout( function() {
 ipcRenderer.on('send-options', (event, options) => {
     document.body.classList.add(options["theme"]);
 
-    var colorCycleSpeed = 3;
+    var colorCycleSpeed = options["colorCycleSpeed"];
+
     var colorSaturation = "60%";
 
-    if ((options["singleColor"]) || (options["singleColor"] == 666)) {
+    if ((options["singleColor"]) || (options["singleColor"] == 666) || (options["singleColor"] == 667)) {
         colorCycleSpeed = 0;
     }
     if (options["singleColor"] == 666) {
         colorSaturation = "0%";
     }
-
     // ribbon appearance section
     new Ribbons({
         colorSaturation: colorSaturation, // set saturation
