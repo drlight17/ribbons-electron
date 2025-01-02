@@ -10,7 +10,7 @@ Windows 7/2008, Linux with modern kernel version (5.x)
 
 | Platform   | Type | Download link                               | File size   |
 |-------------|--------------|---------------------------------------------------|----------------|
-| 🖥 Windows x64   | `.exe`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.2.1-alpha/Ribbons.screensaver.Setup.0.2.1-alpha.exe)   | 80.4 MB          |
+| 🖥 Windows x64   | `.exe`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.2.1-alpha/Ribbons.screensaver.Setup.0.2.1-alpha.exe)   | 80.1 MB          |
 | 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.2.1-alpha/ribbons-electron_0.2.1-alpha_amd64.deb)     | 77.1 MB          |
 | 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.2.1-alpha/ribbons-electron-0.2.1-alpha.x86_64.rpm)    | 77.7 MB          |
 | 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.2.1-alpha/Ribbons.screensaver-0.2.1-alpha.AppImage)     | 107 MB          |
