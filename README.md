@@ -4,7 +4,7 @@ Famous windows-like Ribbons screensaver made with js and Electron wrapped for mu
 <img align="center" width="100%" src="https://raw.githubusercontent.com/drlight17/ribbons-electron/master/ribbons-example.gif">
 
 ## Minimum OS requirements
-MacOS 10.15 Catalina, Windows 7/2008, Linux with modern kernel version (5.x)
+MacOS 10.15 Catalina (since [0.2.2-alpha](https://github.com/drlight17/ribbons-electron/releases/0.2.2-alpha)), Windows 7/2008, Linux with modern kernel version (5.x)
 
 ## 📦 Download
 
@@ -63,6 +63,12 @@ git clone https://github.com/drlight17/ribbons-electron
 cd ./ribbons-electron
 cp ./package.json.linux ./package.json
 ```
+For Macos:
+```
+git clone https://github.com/drlight17/ribbons-electron
+cd ./ribbons-electron
+cp ./package.json.windows ./package.json
+```
 Platform independent steps:
 ```
 npm install -g node-gyp
@@ -81,7 +87,7 @@ npm run dist
 ```
 If there are any module errors try to `npx electron-rebuild` before every `npm start` or `npm run dist`.
 
-Also check [package.json.linux](package.json.linux) and [package.json.windows](package.json.windows)
+Also check [package.json.linux](package.json.linux) and [package.json.windows](package.json.windows). Pay attention: [package.json.windows](package.json.windows) should be used for macos development and build.
 
 
 ## Special thanks to:
