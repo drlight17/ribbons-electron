@@ -38,8 +38,9 @@ All app settings are saved in the local user folder in file config.json:
 This app is created to be used as screensaver with idle system detect to run fullscreen animation. For current alpha version it isn't supposed to be:
 - "native" windows scr app as there are no native winapi preview and settings implementation
 - "native" linux xscreensaver app as there are no plans to develop something for xscreensaver api
+- "native" macos screensaver app as there are no plans to develop something for Objective-C and Cocoa framework
 
-### <ins>So for both platforms make sure to disable "native" screensaver to prevent conflicts!</ins>
+### <ins>So for all the platforms make sure to disable "native" screensaver to prevent conflicts!</ins>
 
 After app startup check it's settings in tray menu:
 <img align="center" width="200" src="https://raw.githubusercontent.com/drlight17/ribbons-electron/refs/heads/main/2.png">
