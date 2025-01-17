@@ -23,7 +23,7 @@ MacOS 10.15 Catalina, Windows 7/2008, Linux with modern kernel version (5.x)
 
 ---
 ### 📂 How to install?
-1. Choose you platform distrib.
+1. Choose your platform distrib.
 2. Click download.
 3. Follow installation.
 
