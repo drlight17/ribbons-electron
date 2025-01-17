@@ -4,18 +4,21 @@ Famous windows-like Ribbons screensaver made with js and Electron wrapped for mu
 <img align="center" width="100%" src="https://raw.githubusercontent.com/drlight17/ribbons-electron/master/ribbons-example.gif">
 
 ## Minimum OS requirements
-Windows 7/2008, Linux with modern kernel version (5.x)
+MacOS 10.15 Catalina, Windows 7/2008, Linux with modern kernel version (5.x)
 
 ## 📦 Download
 
 | Platform   | Type | Download link                               | File size   |
 |-------------|--------------|---------------------------------------------------|----------------|
-| 🖥 Windows x64   | `.exe`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.2.1-alpha/Ribbons.screensaver.Setup.0.2.1-alpha.exe)   | 80.1 MB          |
-| 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.2.1-alpha/ribbons-electron_0.2.1-alpha_amd64.deb)     | 77.1 MB          |
-| 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.2.1-alpha/ribbons-electron-0.2.1-alpha.x86_64.rpm)    | 77.7 MB          |
-| 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.2.1-alpha/Ribbons.screensaver-0.2.1-alpha.AppImage)     | 107 MB          |
-| 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.2.1-alpha/ribbons-electron-0.2.1-alpha.tar.gz)      | 102 MB          |
-| 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/ribbons-electron/releases/download/0.2.1-alpha/Ribbons.screensaver-0.2.1-alpha-win.zip)       | 106 MB          |
+| 🖥 Windows x64   | `.msi`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver.Setup.0.2.2-alpha.msi)   | 96.7 MB          |
+| 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/ribbons-electron_0.2.2-alpha_amd64.deb)     | 77.2 MB          |
+| 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/ribbons-electron-0.2.2-alpha.x86_64.rpm)    | 77.7 MB          |
+| 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver-0.2.2-alpha.AppImage)     | 107 MB          |
+| 🐧 Linux FlatPak x64   | `.flatpak`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver-0.2.2-alpha-x86_64.flatpak)     | 78.8 MB          |
+| 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/ribbons-electron-0.2.2-alpha.tar.gz)      | 102 MB          |
+| 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver-0.2.2-alpha-win.zip)       | 114 MB          |
+| 🍎 macOS DMG x64   | `.dmg`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver-0.2.2-alpha.dmg)     | 103 MB          |
+| 🍎 macOS DMG arm64   | `.dmg`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver-0.2.2-alpha-arm64.dmg)     | 99 MB          |
 
 
 ---
@@ -29,6 +32,7 @@ Windows 7/2008, Linux with modern kernel version (5.x)
 All app settings are saved in the local user folder in file config.json:
 - Windows 7 and newer: `%AppData%\Ribbons screensaver`
 - Linux `~/.config/Ribbons screensaver`
+- MacOS: `~/Library/Application Support/Ribbons screensaver`
 
 ## Usage
 This app is created to be used as screensaver with idle system detect to run fullscreen animation. For current alpha version it isn't supposed to be:
