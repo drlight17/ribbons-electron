@@ -1,5 +1,7 @@
 const { app, clipboard, BrowserWindow, Menu, Tray, nativeImage, ipcMain, screen, nativeTheme, dialog } = require('electron/main')
 const path = require("path");
+const { exec } = require('child_process');
+const packageJsonPath = path.join(app.getAppPath(), 'package.json');
 
 const getResourceDirectory = () => {
   //return process.env.NODE_ENV === "development"
@@ -14,7 +16,6 @@ const getResourceDirectory = () => {
     return path.join(process.resourcesPath, "app.asar.unpacked");
   }
 };
-const iconPath = path.resolve(getResourceDirectory(), "icon.png");
 
 const isMac = process.platform === 'darwin'
 const isWindows = process.platform === 'win32'
@@ -26,7 +27,11 @@ const { join } = require('path');
 const SystemIdleTime = require('desktop-idle');
 const gotTheLock = app.requestSingleInstanceLock();
 const activeWin = require('active-win');
+const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 
+const appNameLC = packageJson.name;
+
+let optionsArray = [];
 
 // list of known desktop manager processes, may be extended
 const desktopProcesses = [
@@ -45,6 +50,7 @@ const desktopProcesses = [
 ];
 
 let mainWindow = [];
+let running_screensaver = {};
 let displays = null;
 
 
@@ -86,6 +92,12 @@ if (!gotTheLock) {
 
         const store = new Store();
 
+        if (!isMac) {
+          var iconPath = path.resolve(getResourceDirectory(), "icon.png");
+        } else {
+          var iconPath = path.join(__dirname,store.get('app_icon_name')||'iconTemplate.png');
+        }
+
         // check if theme is configured and set default auto value if not
         if (!store.get('theme')) {
           store.set('theme', 'auto');
@@ -113,9 +125,13 @@ if (!gotTheLock) {
           setRunAtStartup (true, store);
         }
         
-        //let iconPath = path.join(__dirname,store.get('app_icon_name')||'iconTemplate.png');
         let icon = nativeImage.createFromPath(iconPath); // template with center transparency
-        let trayIcon = icon
+        var trayIcon = icon
+        if (isMac) {
+          //var icon_bw = await bw_icon_process(icon);
+          // as this icon is for macos tray only resize it here
+          trayIcon = trayIcon.resize({width:16});
+        }
 
         
         //setRunAtStartup(store.get('run_at_startup'));
@@ -131,7 +147,18 @@ if (!gotTheLock) {
                   if (!mainWindow[display.id].isVisible()) { 
                     //run_screensaver();
                     mainWindow[display.id].setFullScreen(true);
+                    //mainWindow[display.id].setFullScreenable(false);
+                    mainWindow[display.id].webContents.send('send-options',optionsArray);
                     mainWindow[display.id].show();
+                    // delay activity tracking, otherwise we'll close immediately
+                    setTimeout( function() {
+                      setInterval(function () {
+                        if (SystemIdleTime.getIdleTime()<1) {
+                          //console.log("User activity, stop screensaver at display "+display.label);
+                          stopScreensaver(displays, mainWindow[display.id], this)
+                        }
+                      }, 500);
+                    }, 2000);
                   }
                 })
               },
@@ -456,12 +483,15 @@ if (!gotTheLock) {
               label: 'Run app at startup',
               type: 'checkbox',
               checked: store.get('run_at_startup'),
+              enabled: (app.isPackaged)  ? true : false,
               click: (option) => {
                   store.set('run_at_startup', option.checked);
                   setRunAtStartup (option.checked, store);
                   // to fix cinnamon nemo desktop checked bug 
-                  app.relaunch();
-                  app.exit(0);
+                  //if (!isMac) {
+                    app.relaunch();
+                    app.exit(0);
+                  //} 
 
               },
             },
@@ -485,15 +515,15 @@ if (!gotTheLock) {
         // This method will be called when Electron has finished
         // initialization and is ready to create browser windows.
         app.on('ready', function() {
+          //force hide dockicon on mac
+            if (isMac) app.dock.hide();
             // dont start tray icon in windows
             //if (!isWindows || config) {
-              trayIcon = icon;
+              //trayIcon = icon;
               appIcon = new Tray(trayIcon)
               const contextMenu = Menu.buildFromTemplate(appIconMenuTemplate)
               appIcon.setToolTip(app.getName() + " v."+app.getVersion());
               appIcon.setContextMenu(contextMenu)
-
-              
 
               /*appIcon.on('click', (event) => {
                 if (mainWindow.isVisible() && !mainWindow.isMinimized()) {
@@ -504,6 +534,7 @@ if (!gotTheLock) {
                 }
 
               })*/
+
               appIcon.on('context', (event) => {
                   appIcon.popUpContextMenu(); // TODO KDE linux doesnt support this =((
               })
@@ -516,11 +547,12 @@ if (!gotTheLock) {
 
                 // Create the browser window.
                 mainWindow[display.id] = new BrowserWindow({
-                    x: x,
-                    y: y,
-                    width: width,
-                    height: height,
+                    x: x-1, // -1 to compensate focusable
+                    y: y-1, // -1 to compensate focusable
+                    width: width+2, // +2 to compensate focusable
+                    height: height+2, // +2 to compensate focusable
                     fullscreen: false,
+                    focusable: false,
                     frame: false,
                     icon: icon,
                     show: false,
@@ -536,19 +568,15 @@ if (!gotTheLock) {
 
                 // to override everything
                 mainWindow[display.id].setAlwaysOnTop(true, 'screen-saver', 1);
+                //mainWindow[display.id].setResizable(false);
 
                 // and load the index.html of the app.
                 mainWindow[display.id].loadFile('index.html');
 
-                // send options to all windows
-                mainWindow[display.id].webContents.once('did-finish-load', () => {
-                  let optionsArray = [];
-                  optionsArray["ribbonCount"] = store.get('max_visible_ribbons');
-                  optionsArray["colorCycleSpeed"] = store.get('color_cycle_speed');
-                  optionsArray["singleColor"] = store.get('single_color');
-                  optionsArray["theme"] = store.get('theme') == 'auto' ? system_theme : store.get('theme');
-                  mainWindow[display.id].webContents.send('send-options',optionsArray);
-                });
+                optionsArray["ribbonCount"] = store.get('max_visible_ribbons');
+                optionsArray["colorCycleSpeed"] = store.get('color_cycle_speed');
+                optionsArray["singleColor"] = store.get('single_color');
+                optionsArray["theme"] = store.get('theme') == 'auto' ? system_theme : store.get('theme');
 
                 // Hide the menu
                 mainWindow[display.id].setMenu(null);
@@ -575,47 +603,108 @@ if (!gotTheLock) {
                 copyright: "Lisense AGPLv3 ©2024",
                 iconPath: iconPath,
                 //iconPath: path.resolve(getResourceDirectory(), "icon.png"),
-                website: "https://github.com/drlight17/ribbons-electron"
+                website: "https://github.com/drlight17/"+appNameLC
             });
 
             // dont use desktop-idle in windows
             //if (!isWindows) {
-              let activity_check_interval = 1;
+              displays.forEach((display) => {
+                const { x, y, width, height } = display.bounds;
+                let activity_check_interval = 1;
+                let activeWindow = [];
+                var isFullscreen = [];
 
-              setInterval(function () {
-                //let time_left = store.get('idle_time')-Math.round(SystemIdleTime.getIdleTime());
-                //console.log('Time before screensaver run: ' + time_left + 's')
-                if (SystemIdleTime.getIdleTime() > store.get('idle_time')) {
-                  (async () => {
-                    const activeWindow = await activeWin();
+                setInterval(function () {
+                  //let time_left = store.get('idle_time')-Math.round(SystemIdleTime.getIdleTime());
+                  //console.log('Time before screensaver run: ' + time_left + 's')
 
-                    if (!activeWindow) {
-                      console.log('Cannot get active window. Screensaver will not run.');
-                      return;
-                    }
-
-                    const { bounds } = activeWindow;
-                    const primaryDisplay = screen.getPrimaryDisplay();
-                    const { bounds: screenBounds } = primaryDisplay;
-
-                    const isFullscreen =
-                      bounds.x === screenBounds.x &&
-                      bounds.y === screenBounds.y &&
-                      bounds.width === screenBounds.width &&
-                      bounds.height === screenBounds.height;
-
-                    if (!isFullscreen || (isDesktopWindow(activeWindow))) {
-                      //console.log('Current active window is not fullscreen or desktop. Running screensaver.');
-                      displays.forEach((display) => {
-                          if (!mainWindow[display.id].isVisible()) {
-                              mainWindow[display.id].setFullScreen(true);
-                              mainWindow[display.id].show();
-                          }
+                  if (SystemIdleTime.getIdleTime() > store.get('idle_time')) {
+                    (async () => {
+                      activeWindow[display.id] = await activeWin({
+                        accessibilityPermission: false,
+                        screenRecordingPermission: false
                       });
-                    }
-                  })();
-                }
-              }, activity_check_interval*1000);
+                      var macNoActiveWin = false;
+
+                      if (!activeWindow[display.id]) {
+                        if (isMac) {
+                          macNoActiveWin = true;
+                        } else {
+                        console.log('Cannot get active window. Screensaver will not run.');
+                        return;
+                        }
+                      }
+
+                      //if (!(Object.keys(running_screensaver).length === 0 && running_screensaver.constructor === Object)) {
+                      /*if (running_screensaver[display.id] && mainWindow[display.id].isVisible()) {
+                        console.log('There is already screensaver on '+display.id+ ' display. Screensaver will not run.');
+                        return;
+                      }*/
+
+                      
+                      if (!macNoActiveWin) {
+                        const { bounds } = activeWindow[display.id];
+                        //const primaryDisplay = screen.getPrimaryDisplay();
+                        //const { bounds: screenBounds } = primaryDisplay;
+
+                        
+                        // on mac some fullscreen apps height is not fetched so skip it 
+                        if (!isMac) {
+                          isFullscreen[display.id] =
+                            bounds.x === x &&
+                            bounds.y === y &&
+                            bounds.width === width &&
+                            bounds.height === height;
+                        } else {
+                          isFullscreen[display.id] =
+                            bounds.x === x &&
+                            bounds.y === y &&
+                            bounds.width === width;
+                        }
+                        /*console.log("Display: "+display.id+" Active app is fullscreen: "+isFullscreen[display.id] + 
+                          " Running screensaver: "+running_screensaver[display.id])*/
+
+                        if ((!running_screensaver[display.id])&&(!isFullscreen[display.id] || (isDesktopWindow(activeWindow[display.id])))) {
+                          //console.log('Current active window is not fullscreen or desktop. Running screensaver.');
+                          //displays.forEach((display) => {
+                              if (!mainWindow[display.id].isVisible()) {
+                                  mainWindow[display.id].setFullScreen(true);
+                                  //mainWindow[display.id].setFullScreenable(false);
+                                  mainWindow[display.id].webContents.send('send-options',optionsArray);
+                                  mainWindow[display.id].showInactive();
+                                  running_screensaver[display.id] = true;
+                                  setInterval(function () {
+                                    if (SystemIdleTime.getIdleTime()<1) {
+                                      //console.log("User activity, stop screensaver at display "+display.label);
+                                      stopScreensaver(displays, mainWindow[display.id], this)
+                                    }
+                                  }, 500)
+                              }
+                          //});
+                        }
+                      } else {
+                        //displays.forEach((display) => {
+                          //console.log('There is no active windows but it is Mac. Running screensaver.');
+                            if (!mainWindow[display.id].isVisible()) {
+                                mainWindow[display.id].setFullScreen(true);
+                                //mainWindow[display.id].setFullScreenable(false);
+                                mainWindow[display.id].webContents.send('send-options',optionsArray);
+                                mainWindow[display.id].showInactive();
+                                running_screensaver[display.id] = true;
+                                setInterval(function () {
+                                  if (SystemIdleTime.getIdleTime()<1) {
+                                    //console.log("User activity, stop screensaver at display "+display.label);
+                                    stopScreensaver(displays, mainWindow[display.id], this)
+                                  }
+                                }, 500)
+                            }
+                        //});
+                      }
+                    })();
+                  }
+                }, activity_check_interval*1000);
+
+              });
             //}
             // run fullscreen graphics immediately in windows
             /*if (isWindows) {
@@ -630,28 +719,26 @@ if (!gotTheLock) {
             }*/
         });
 
-        // Quit the screensaver when the renderer process says so
-
-        ipcMain.on('sendQuit', function(event){
-            // stop app in windows after sendQuit
-            /*if (isWindows) {
-              app.exit(0);
-            } else { */
-              displays.forEach((display) => {
-                  //console.log(display.id)
-                if (mainWindow[display.id].isVisible()) {
-                  mainWindow[display.id].setFullScreen(false);
-                  mainWindow[display.id].hide();
-                }
-              });
-            //}
-        });
     }
     catch (err) {
         console.log(err)
         fs.unlinkSync(app.getPath('userData')+"/config.json")
         app.relaunch();
         app.exit()
+    }
+
+    // stop screensaver func
+    function stopScreensaver(displays, win, checkid) {
+      displays.forEach((display) => {
+        if (mainWindow[display.id].isVisible()) {
+          win.setFullScreen(false);
+          //win.setFullScreenable(true);
+          win.webContents.send('send-stop',true);
+          win.hide();
+          running_screensaver = {};
+        }
+      });
+      clearInterval(checkid);
     }
 
     // check desktop window
@@ -664,30 +751,37 @@ if (!gotTheLock) {
             owner.name.toLowerCase().includes(process.toLowerCase())
         );
 
-        const isEmptyTitle = !title || title.trim() === '';
-
-        return isKnownDesktopProcess || isEmptyTitle;
+        // exclude empty title check for mac
+        if (!isMac) {
+          const isEmptyTitle = !title || title.trim() === '';
+          return isKnownDesktopProcess || isEmptyTitle;
+        } else {
+          return isKnownDesktopProcess;
+        }
     }
 
 
     function setRunAtStartup (flag, store) {
         //store.set('run_at_startup',flag);
         if (flag) {
-          app.setLoginItemSettings({
-              openAtLogin: true,
-              //name: app.getName() + " v."+app.getVersion() // to fix version in registry autorun
-              name: app.getName()
-          })
+          if (isWindows) {
+            app.setLoginItemSettings({
+                openAtLogin: true,
+                //path: app.getPath('exe'),
+                //name: app.getName() + " v."+app.getVersion() // to fix version in registry autorun
+                name: app.getName()
+            })
+          }
           if (isLinux) {
-            let executable = "ribbons-electron";
+            let executable = appNameLC;
             if (process.env.APPIMAGE) {
-              executable = process.env.APPIMAGE;
+              executable = `"`+process.env.APPIMAGE+`"`;
             } else {
-              executable = app.getPath('exe');
+              executable = `"`+app.getPath('exe')+`"`;
             }
             const isKDE = process.env.KDE_SESSION_VERSION !== undefined;
             if (isKDE) {
-              executable = `sleep 10 && "` + executable + `"`;
+              executable = `sleep 10 && ` + executable;
             }
             let shortcut_contents = `[Desktop Entry]
 Categories=Utility;
@@ -697,21 +791,52 @@ Name=Ribbons screensaver
 StartupWMClass=Ribbons screensaver
 Terminal=false
 Type=Application
-Icon=ribbons-electron
+Icon=`+appNameLC+`
 X-GNOME-Autostart-Delay=10`;
-            if (!fs.existsSync(app.getPath('home')+"/.config/autostart/ribbons-electron.desktop")) {
-              fs.writeFileSync(app.getPath('home')+"/.config/autostart/ribbons-electron.desktop",shortcut_contents, 'utf-8');
+            if (!fs.existsSync(app.getPath('home')+"/.config/autostart/"+appNameLC+".desktop")) {
+              fs.writeFileSync(app.getPath('home')+"/.config/autostart/"+appNameLC+".desktop",shortcut_contents, 'utf-8');
+            }
+          }
+          if (isMac) {
+            let plist_contents =`
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.electron.`+appNameLC+`</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Applications/Ribbons screensaver.app/Contents/MacOS/Ribbons screensaver</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>
+`;
+            if (!fs.existsSync(app.getPath('home')+"/Library/LaunchAgents/com.electron."+appNameLC+".plist")) {
+              fs.writeFileSync(app.getPath('home')+"/Library/LaunchAgents/com.electron."+appNameLC+".plist",plist_contents, 'utf-8');
+              exec('launchctl bootstrap enable '+app.getPath('home')+'/Library/LaunchAgents/com.electron.'+appNameLC+'.plist');
             }
           }
         } else {
-          app.setLoginItemSettings({
-              openAtLogin: false,
-              //name: app.getName() + " v."+app.getVersion()  // to fix version in registry autorun
-              name: app.getName()
-          })
+          if (isWindows) {
+            app.setLoginItemSettings({
+                openAtLogin: false,
+                //path: app.getPath('exe'),
+                //name: app.getName() + " v."+app.getVersion()  // to fix version in registry autorun
+                name: app.getName()
+            })
+          }
           if (isLinux) {
-            if (fs.existsSync(app.getPath('home')+"/.config/autostart/ribbons-electron.desktop")) {
-              fs.unlinkSync(app.getPath('home')+"/.config/autostart/ribbons-electron.desktop")
+            if (fs.existsSync(app.getPath('home')+"/.config/autostart/"+appNameLC+".desktop")) {
+              fs.unlinkSync(app.getPath('home')+"/.config/autostart/"+appNameLC+".desktop")
+            }
+          }
+          if (isMac) {
+            if (fs.existsSync(app.getPath('home')+"/Library/LaunchAgents/com.electron."+appNameLC+".plist")) {
+              fs.unlinkSync(app.getPath('home')+"/Library/LaunchAgents/com.electron."+appNameLC+".plist");
+              exec('launchctl bootstrap disable com.electron.'+appNameLC);
             }
           }
         }

@@ -426,7 +426,7 @@
                 this.addRibbon();
             }
 
-            requestAnimationFrame(this._onDraw.bind(this));
+            AnimationId = requestAnimationFrame(this._onDraw.bind(this));
         },
 
 
@@ -461,41 +461,16 @@
 // electron related stuff
 // the screensaver glue: making sure we quit when needed
 const { ipcRenderer } = require('electron')
-var sendQuit = function(){
-    ipcRenderer.send('sendQuit');
-}
 
-document.addEventListener('keydown', sendQuit);
-document.addEventListener('mousedown', sendQuit);
+let Ribbons_instance = null;
+var colorCycleSpeed = null;
+var colorSaturation = null;
+var options = [];
+var AnimationId = null;
 
-// Also quit on mouse movement, but delay mousemove tracking, otherwise we'll close immediately
-setTimeout( function() {
-    var treshold = 7;
-    document.addEventListener('mousemove', function(e) {
-        if (treshold * treshold < e.movementX * e.movementX
-            + e.movementY * e.movementY) {
-                sendQuit();
-            }
-    });
-
-}, 2000);
-
-
-ipcRenderer.on('send-options', (event, options) => {
-    document.body.classList.add(options["theme"]);
-
-    var colorCycleSpeed = options["colorCycleSpeed"];
-
-    var colorSaturation = "60%";
-
-    if ((options["singleColor"]) || (options["singleColor"] == 666) || (options["singleColor"] == 667)) {
-        colorCycleSpeed = 0;
-    }
-    if (options["singleColor"] == 666) {
-        colorSaturation = "0%";
-    }
+function start_Ribbons(colorSaturation, colorCycleSpeed, options) {
     // ribbon appearance section
-    new Ribbons({
+    Ribbons_instance = new Ribbons({
         colorSaturation: colorSaturation, // set saturation
         colorBrightness: "50%", // set brightness
         colorAlpha: 1, // set semitransparency
@@ -509,6 +484,35 @@ ipcRenderer.on('send-options', (event, options) => {
         ribbonBlur: 30, // set ribbon blur intensity
         singleColor: options["singleColor"]  // set ribbon single color in HSL(Hue, Saturation, Lightness) model
     });
+}
+
+ipcRenderer.on('send-stop', (event, flag) => {
+    // stop animation and clear canvas and context from memory
+    Ribbons_instance._context.clearRect(0, 0, Ribbons_instance._canvas.width, Ribbons_instance._canvas.height);
+    cancelAnimationFrame(AnimationId);
+    Ribbons_instance._canvas.remove();
+    Ribbons_instance = null;
+    //Ribbons_instance.destroy();
+});
+
+
+ipcRenderer.on('send-options', (event, got_options) => {
+    options = got_options;
+    document.body.classList.add(options["theme"]);
+
+    var colorCycleSpeed = options["colorCycleSpeed"];
+
+    var colorSaturation = "60%";
+
+    if ((options["singleColor"]) || (options["singleColor"] == 666) || (options["singleColor"] == 667)) {
+        colorCycleSpeed = 0;
+    }
+    if (options["singleColor"] == 666) {
+        colorSaturation = "0%";
+    }
+
+    start_Ribbons(colorSaturation, colorCycleSpeed, options);
+
 });
 // force hide mouse cursor
 document.body.style.cursor = "none";
