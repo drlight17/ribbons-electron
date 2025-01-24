@@ -4,7 +4,7 @@ Famous windows-like Ribbons screensaver made with js and Electron wrapped for mu
 <img align="center" width="100%" src="https://raw.githubusercontent.com/drlight17/ribbons-electron/master/ribbons-example.gif">
 
 ## Minimum OS requirements
-MacOS 10.15 Catalina (since [0.2.2-alpha](https://github.com/drlight17/ribbons-electron/releases/0.2.2-alpha)), Windows 8/2012, Linux with modern kernel version (5.x)
+MacOS 10.15 Catalina (since [0.2.2-alpha](https://github.com/drlight17/ribbons-electron/releases/0.2.2-alpha)), Windows 8/2012, Linux with modern kernel version (5.x) and Xserver (wayland is not supported, at least for now)
 
 ## 📦 Download
 
