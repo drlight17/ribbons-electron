@@ -11,7 +11,7 @@ MacOS 10.15 Catalina (since [0.2.2-alpha](https://github.com/drlight17/ribbons-e
 | Platform   | Type | Download link                               | File size   |
 |-------------|--------------|---------------------------------------------------|----------------|
 | 🖥 Windows MSI x64   | `.msi`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver.0.3.0-alpha.msi)   | 98.4 MB          |
-| 🖥 Windows Exe x64   | `.exe`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver.Setup.0.3.0-alpha.exe)   | 88.4 MB          |
+| 🖥 Windows setup x64   | `.exe`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver.Setup.0.3.0-alpha.exe)   | 88.4 MB          |
 | 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/ribbons-electron_0.3.0-alpha_amd64.deb)     | 85.5 MB          |
 | 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/ribbons-electron-0.3.0-alpha.x86_64.rpm)    | 85.5 MB          |
 | 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver-0.3.0-alpha.AppImage)     | 119 MB          |
