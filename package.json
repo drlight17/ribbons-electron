@@ -1,0 +1,135 @@
+{
+  "name": "ribbons-electron",
+  "productName": "Ribbons screensaver",
+  "description": "Famous Ribbons screensaver made with js and Electron wrapped for multi platform support",
+  "keywords": [
+    "windows",
+    "ribbons",
+    "screensaver",
+    "electron"
+  ],
+  "type": "module",
+  "icon": "icon.png",
+  "main": "./main.js",
+  "version": "0.3.0-alpha",
+  "author": "Yuri Samoilov <root@drlight.fun>",
+  "homepage": "https://github.com/drlight17/ribbons-electron",
+  "build": {
+    "appId": "com.electron.ribbons-electron",
+    "productName": "Ribbons screensaver",
+    "asar": true,
+    "nsis": {
+      "oneClick": true,
+      "perMachine": true,
+      "allowElevation": true
+    },
+    "msi": {
+      "oneClick": true,
+      "perMachine": true
+    },
+    "mac": {
+      "icon": "icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "dmg",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "asarUnpack": "./icon.png"
+    },
+    "win": {
+      "icon": "icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "msi",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "asarUnpack": "./icon.png"
+    },
+    "linux": {
+      "icon": "icon.icns",
+      "target": [
+        {
+          "target": "flatpak",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "tar.gz",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "rpm",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "asarUnpack": "./icon.png"
+    }
+  },
+  "scripts": {
+    "build-rpm": "electron-builder --linux rpm",
+    "build-deb": "electron-builder --linux deb",
+    "build-targz": "electron-builder --linux tar.gz",
+    "build-flatpak": "electron-builder --linux flatpak",
+    "build-AppImage": "electron-builder --linux AppImage",
+    "build-exe": "electron-builder --windows nsis",
+    "build-msi": "electron-builder --windows msi",
+    "build-zip": "electron-builder --windows zip",
+    "build-dmg": "electron-builder --mac dmg",
+    "dist": "electron-builder",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "@deepfocus/get-windows": "^1.0.21",
+    "@electron/packager": "latest",
+    "desktop-idle": "^1.3.0",
+    "electron-fetch": "^1.9.1",
+    "electron-prompt": "latest",
+    "electron-store": "^8.2.0"
+  },
+  "devDependencies": {
+    "electron": "^29",
+    "electron-builder": "^25",
+    "electron-rebuild": "^3.2.9"
+  }
+}

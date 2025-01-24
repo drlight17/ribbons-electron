@@ -147,6 +147,8 @@
             verticalPosition: "center",
             // how fast to get to the other side of the screen
             horizontalSpeed: 150,
+            delay: 4, //set delay
+            phase: 0.014, //set phase
             // how many ribbons to keep on screen at any given time
             ribbonCount: 3,
             // add stroke along with ribbon fill colors
@@ -303,8 +305,10 @@
                 point1.copy(point2);
                 point2.copy(point3);
 
-
-                delay += 4;
+                // affects ribbon appear speed
+                //delay += 4;
+                //delay += 0.2;
+                delay += this._options.delay;
                 color += this._options.colorCycleSpeed;
                 
             }
@@ -321,7 +325,9 @@
                     return true; // done
                 }
                 if (section.delay <= 0) {
-                    section.phase += 0.014;
+                    // section.phase affects animation speed 
+                    //section.phase += 0.014;
+                    section.phase += this._options.phase;
                     section.alpha = Math.sin(section.phase) * 1;
                     section.alpha = (section.alpha <= 0) ? 0 : section.alpha;
                     section.alpha = (section.alpha >= 1) ? 1 : section.alpha;
@@ -343,6 +349,7 @@
                         section.point3.add(0, mod);
                     }
                 } else {
+                    // affects ribbon dissapear speed
                     section.delay -= 0.5;
                 }
                 
@@ -476,7 +483,9 @@ function start_Ribbons(colorSaturation, colorCycleSpeed, options) {
         colorAlpha: 1, // set semitransparency
         colorCycleSpeed: colorCycleSpeed, // set color cycle speed
         verticalPosition: "random", // make vertical position random
-        horizontalSpeed: 400, // set speed
+        horizontalSpeed: options["horizontalSpeed"], // set speed
+        delay: options["delay"], //set delay
+        phase: options["phase"], //set phase
         ribbonCount: options["ribbonCount"], // max onscreen visible ribbons
         strokeSize: 1, // add stroke
         parallaxAmount: -0.3, // lightn parallax
@@ -498,6 +507,7 @@ ipcRenderer.on('send-stop', (event, flag) => {
 
 ipcRenderer.on('send-options', (event, got_options) => {
     options = got_options;
+    //console.log(options["horizontalSpeed"])
     document.body.classList.add(options["theme"]);
 
     var colorCycleSpeed = options["colorCycleSpeed"];
@@ -510,6 +520,28 @@ ipcRenderer.on('send-options', (event, got_options) => {
     if (options["singleColor"] == 666) {
         colorSaturation = "0%";
     }
+
+    if (options["horizontalSpeed"] == "v_fast") {
+        options["delay"] = 1.5;
+        options["phase"] = 0.07;
+    }
+
+    else if (options["horizontalSpeed"] == "fast") {
+        options["delay"] = 2;
+        options["phase"] = 0.04;
+    }
+
+    else if  (options["horizontalSpeed"] == "normal") {
+        options["delay"] = 4;
+        options["phase"] = 0.014;
+    }
+
+    else if  (options["horizontalSpeed"] == "slow") {
+        options["delay"] = 6;
+        options["phase"] = 0.007;
+    }
+
+    options["horizontalSpeed"] = 400;
 
     start_Ribbons(colorSaturation, colorCycleSpeed, options);
 
