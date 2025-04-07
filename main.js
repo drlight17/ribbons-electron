@@ -2,7 +2,11 @@ import { app, powerMonitor, clipboard, BrowserWindow, Menu, MenuItem, Tray, nati
 import * as path from 'path';
 import { fileURLToPath } from "url";
 import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import * as DBus from 'dbus-next';
+import console from 'console';
+
+app.console = new console.Console(process.stdout, process.stderr);
 
 const packageJsonPath = path.join(app.getAppPath(), 'package.json');
 // __dirname new electron fix
@@ -86,9 +90,19 @@ function stopScreensaver(displays, win, checkid) {
   clearInterval(checkid);
 }
 
-function restartApp(){
-    app.relaunch();
+function restartApp() {
+  let options = [];
+  
+  if (app.isPackaged && process.env.APPIMAGE) {
+    options.args = process.argv;
+    //options.args.unshift({ windowsHide: false });
+    execFile(process.execPath, options.args);
     app.exit(0);
+    return;
+  }
+  app.relaunch();
+  app.exit(0);
+
 }
 
 // linux lock events listener
@@ -144,6 +158,19 @@ function isDesktopWindow(window) {
     }
 }
 
+// check Xwininfo installed (linux)
+function checkXwininfoInstalled() {
+  return new Promise((resolve, reject) => {
+    exec('which xwininfo', (error, stdout, stderr) => {
+      if (error) {
+        resolve(false);
+      } else {
+        resolve(true);
+      }
+    });
+  });
+}
+
 function appendLanguages(contextMenu,lang_files) {
   //console.log(typeof(lang_files));
   let langSubmenu = [];
@@ -183,19 +210,23 @@ function setRunAtStartup (flag, store) {
       }
       if (isLinux) {
         let executable = appNameLC;
+        let Path = '';
         if (process.env.APPIMAGE) {
+          Path = process.env.APPIMAGE.replace(/\/[^\/]*$/, '/');
           executable = `"`+process.env.APPIMAGE+`"`;
         } else {
+          Path = app.getPath('exe').replace(/\/[^\/]*$/, '/');
           executable = `"`+app.getPath('exe')+`"`;
         }
         const isKDE = process.env.KDE_SESSION_VERSION !== undefined;
         if (isKDE) {
-          executable = `sleep 10 && ` + executable;
+          executable = `'sleep 10 && ` + executable + `'`;
         }
         let shortcut_contents = `[Desktop Entry]
-Categories=Utility;
+Categories=Multimedia
 Comment=Windows like ribbons screensaver app
-Exec=`+executable+`
+Exec=bash -c `+executable+`
+Path=`+Path+`
 Name=Ribbons screensaver
 StartupWMClass=Ribbons screensaver
 Terminal=false
@@ -297,7 +328,8 @@ if (!gotTheLock) {
       if (isMac) {
         app.exit(0);
       } else {
-        dialog.showErrorBox('Error ', 'Screensaver is already run! Check tray icon!');
+
+        dialog.showErrorBox(i18n.__('error'), i18n.__('error1'));
       }
       //exec('launchctl stop com.electron.'+appNameLC+'&& sleep 5 && launchctl start com.electron.'+appNameLC);
       //if (mainWindow) {
@@ -307,6 +339,14 @@ if (!gotTheLock) {
       //}
     })
     try {
+      
+        // temporary turn off console.log errors in case of app.exit(0) in AppImage
+        process.stdout.on('error', (err) => {
+          if (err.code === 'EPIPE') {
+          } else {
+            throw err;
+          }
+        });
 
         var i18n = new(require('./translations/i18n.cjs'));
 
@@ -368,7 +408,8 @@ if (!gotTheLock) {
               label: i18n.__('show_now'),
               click: () => {
                 displays.forEach((display) => {
-                  if (!mainWindow[display.id].isVisible()) { 
+                  if (!mainWindow[display.id].isVisible()) {
+                    app.console.log(new Date().toLocaleString()+" Start screensaver at display "+display.label);
                     //run_screensaver();
                     mainWindow[display.id].setFullScreen(true);
                     //mainWindow[display.id].setFullScreenable(false);
@@ -382,7 +423,7 @@ if (!gotTheLock) {
                           stopScreensaver(displays, mainWindow[display.id], this)
                         }
                       }, 500);
-                    }, 2000);
+                    }, 1000);
                   }
                 })
               },
@@ -796,6 +837,13 @@ if (!gotTheLock) {
             // to detect lock screen and suspend (linux)
             listenForScreenLockEvents().catch(console.error);
             listenForSuspendEvents().catch(console.error);
+            checkXwininfoInstalled().then((installed) => {
+              // check xwininfo
+              if (!installed) {
+                dialog.showErrorBox(i18n.__('error'), i18n.__('error2'));
+                app.exit(0);
+              }
+            });
           }
           //force hide dockicon on mac
             if (isMac) app.dock.hide();
@@ -808,15 +856,34 @@ if (!gotTheLock) {
               appIcon.setToolTip(app.getName() + " v."+app.getVersion());
               appIcon.setContextMenu(contextMenu)
 
-              /*appIcon.on('click', (event) => {
-                if (mainWindow.isVisible() && !mainWindow.isMinimized()) {
+              appIcon.on('click', (event) => {
+                /*if (mainWindow.isVisible() && !mainWindow.isMinimized()) {
                   mainWindow.hide()
                   //win_loading.hide();
                 } else {
                   mainWindow.show()
-                }
+                }*/
+                displays.forEach((display) => {
+                  if (!mainWindow[display.id].isVisible()) { 
+                    console.log(new Date().toLocaleString()+" Start screensaver at display "+display.label);
+                    //run_screensaver();
+                    mainWindow[display.id].setFullScreen(true);
+                    //mainWindow[display.id].setFullScreenable(false);
+                    mainWindow[display.id].webContents.send('send-options',optionsArray);
+                    mainWindow[display.id].show();
+                    // delay activity tracking, otherwise we'll close immediately
+                    setTimeout( function() {
+                      setInterval(function () {
+                        if (Math.round(SystemIdleTime.getIdleTime())<1) {
+                          console.log(new Date().toLocaleString()+" User activity, stop screensaver at display "+display.label);
+                          stopScreensaver(displays, mainWindow[display.id], this)
+                        }
+                      }, 500);
+                    }, 1000);
+                  }
+                })
 
-              })*/
+              })
 
               appIcon.on('context', (event) => {
                   appIcon.popUpContextMenu(); // TODO KDE linux doesnt support this =((
@@ -972,6 +1039,7 @@ if (!gotTheLock) {
                           if ((!running_screensaver[display.id])&&(!isFullscreen[display.id] || (isDesktopWindow(curWindow[display.id])))) {
                             //console.log('Current active window is not fullscreen or desktop. Running screensaver.');
                               if (!mainWindow[display.id].isVisible()) {
+                                  console.log(new Date().toLocaleString()+" Start screensaver at display "+display.label);
                                   mainWindow[display.id].setFullScreen(true);
                                   //mainWindow[display.id].setFullScreenable(false);
                                   mainWindow[display.id].webContents.send('send-options',optionsArray);
@@ -988,6 +1056,7 @@ if (!gotTheLock) {
                         } else {
                           //console.log('There is no active windows but it is Mac. Running screensaver.');
                             if (!mainWindow[display.id].isVisible()) {
+                                console.log(new Date().toLocaleString()+" Start screensaver at display "+display.label);
                                 mainWindow[display.id].setFullScreen(true);
                                 //mainWindow[display.id].setFullScreenable(false);
                                 mainWindow[display.id].webContents.send('send-options',optionsArray);
