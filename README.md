@@ -6,28 +6,11 @@ Famous windows-like Ribbons screensaver made with js and Electron wrapped for mu
 ## Minimum OS requirements
 MacOS 10.15 Catalina (since [0.2.2-alpha](https://github.com/drlight17/ribbons-electron/releases/0.2.2-alpha)), Windows 8/2012, Linux with modern kernel version (5.x) and Xserver (wayland is not supported, at least for now)
 
-## 📦 Download
+## 📦 Download and install
 
-| Platform   | Type | Download link                               | File size   |
-|-------------|--------------|---------------------------------------------------|----------------|
-| 🖥 Windows MSI x64   | `.msi`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver.0.3.0-alpha.msi)   | 98.4 MB          |
-| 🖥 Windows setup x64   | `.exe`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver.Setup.0.3.0-alpha.exe)   | 88.4 MB          |
-| 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/ribbons-electron_0.3.0-alpha_amd64.deb)     | 85.5 MB          |
-| 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/ribbons-electron-0.3.0-alpha.x86_64.rpm)    | 85.5 MB          |
-| 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver-0.3.0-alpha.AppImage)     | 119 MB          |
-| 🐧 Linux FlatPak x64   | `.flatpak`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver-0.3.0-alpha-x86_64.flatpak)     | 86.7 MB          |
-| 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/ribbons-electron-0.3.0-alpha.tar.gz)      | 114 MB          |
-| 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver-0.3.0-alpha-win.zip)       | 117 MB          |
-| 🍎 macOS DMG x64   | `.dmg`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver-0.3.0-alpha.dmg)     | 112 MB          |
-| 🍎 macOS DMG arm64   | `.dmg`       | [Download](https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver-0.3.0-alpha-arm64.dmg)     | 107 MB          |
-
+Go to landing page https://drlight17.github.io/, download your platform latest version and follow installation
 
 ---
-### 📂 How to install?
-1. Choose your platform distrib.
-2. Click download.
-3. Follow installation.
-
 
 ## Supported settings
 All app settings are saved in the local user folder in file config.json:
