@@ -32,10 +32,14 @@
     "min":"min",
     "run_at_startup":"Run app at startup",
     "about":"About",
+    "logging":"Write log file",
+    "logging_sw":"Turned on",
+    "logging_open":"Open log file",
     "exit":"Exit",
     "app_name": "\"Ribbons\" screensaver",
     "horizontal_speed": "Draw speed",
     "error1": "Screensaver is already run! Check tray icon!",
     "error2": "There is no xwininfo detected in your system! Install it in order to use screensaver!",
-    "error": "Error"
+    "error": "Error",
+    "error3": "Wayland protocol is not supported. X11 only."
 }

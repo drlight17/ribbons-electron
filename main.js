@@ -1,8 +1,10 @@
-import { app, powerMonitor, clipboard, BrowserWindow, Menu, MenuItem, Tray, nativeImage, ipcMain, screen, nativeTheme, dialog } from 'electron';
+import { app, powerMonitor, clipboard, BrowserWindow, Menu, MenuItem, Tray, nativeImage, ipcMain, screen, nativeTheme, dialog, shell } from 'electron';
 import * as path from 'path';
 import { fileURLToPath } from "url";
 import { exec } from 'child_process';
 import { execFile } from 'child_process';
+import { execSync } from 'child_process';
+import { spawn } from 'child_process';
 import * as DBus from 'dbus-next';
 import console from 'console';
 
@@ -14,6 +16,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
+const robot = require('robotjs');
 
 const isMac = process.platform === 'darwin'
 const isWindows = process.platform === 'win32'
@@ -74,6 +77,18 @@ let isLocked_suspend = false;
       app.exit(0);
   }
 }*/
+
+if (!isMac) {
+  var iconPath = path.resolve(getResourceDirectory(), "icon.png");
+  store = new Store();
+} else {
+  getResourceDirectory();
+  store = new Store();
+  var iconPath = path.join(__dirname,store.get('app_icon_name')||'iconTemplate.png');
+
+
+}
+
 // **************** functions block *********************************
 
 // stop screensaver func
@@ -90,9 +105,25 @@ function stopScreensaver(displays, win, checkid) {
   clearInterval(checkid);
 }
 
-function restartApp() {
+// to hide system cursor on macos using robotjs
+function hideCursor (mainWin) {
+    const screenSize = robot.getScreenSize();
+    robot.moveMouse(screenSize.width - 1 , screenSize.height - 1);
+}
+
+async function restartApp(removed) {
   let options = [];
-  
+
+  // check if app is in autostart and run as linux systemd service
+  if (process.argv.includes('--systemd')) {
+    let executable = `"`+app.getPath('exe')+`"`;
+    if (!removed) {
+      writeLog('Application was run as service. Trying to restart systemd service...');
+      exec(`systemctl --user restart `+appNameLC+`.service`);
+      return;
+    }
+  }
+
   if (app.isPackaged && process.env.APPIMAGE) {
     options.args = process.argv;
     //options.args.unshift({ windowsHide: false });
@@ -100,9 +131,9 @@ function restartApp() {
     app.exit(0);
     return;
   }
+
   app.relaunch();
   app.exit(0);
-
 }
 
 // linux lock events listener
@@ -114,10 +145,10 @@ async function listenForScreenLockEvents() {
   screenSaver.on('ActiveChanged', (isActive) => {
     if (isActive) {
       isLocked_suspend = true;
-      console.log(new Date().toLocaleString()+' The screen is locked');
+      writeLog('The screen is locked');
     } else {
       isLocked_suspend = false;
-      console.log(new Date().toLocaleString()+' The screen is unlocked');
+      writeLog('The screen is unlocked');
     }
   });
 }
@@ -131,10 +162,10 @@ async function listenForSuspendEvents() {
   logindManager.on('PrepareForSleep', (isStarting) => {
     if (isStarting) {
       isLocked_suspend = true;
-      console.log(new Date().toLocaleString()+' The system is suspended');
+      writeLog('The system is suspended');
     } else {
       isLocked_suspend = false;
-      console.log(new Date().toLocaleString()+' The system is released');
+     writeLog('The system is released');
     }
   });
 }
@@ -156,6 +187,13 @@ function isDesktopWindow(window) {
     } else {
       return isKnownDesktopProcess;
     }
+}
+
+// check non-X11 linux environment
+function detectWayland() {
+  if (process.env.XDG_SESSION_TYPE === 'wayland' || process.env.WAYLAND_DISPLAY) {
+    return true;
+  }
 }
 
 // check Xwininfo installed (linux)
@@ -199,6 +237,25 @@ function appendLanguages(contextMenu,lang_files) {
 
 function setRunAtStartup (flag, store) {
     //store.set('run_at_startup',flag);
+    // check if store.get('exec_path') is the same as linux systemd service ExecStart
+    let executable = appNameLC;
+    let Path = '';
+    let exec_changed = false;
+
+    if (isLinux) {
+      if (process.env.APPIMAGE) {
+        executable = process.env.APPIMAGE;
+      } else {
+        executable = app.getPath('exe');
+      }
+
+      if (executable != store.get('exec_path')) {
+        writeLog("Exec path were changed! Force change of systemd service ExecStart.")
+        store.set('exec_path', executable)
+        flag = true;
+        exec_changed = true;
+      }
+    }
     if (flag) {
       if (isWindows) {
         app.setLoginItemSettings({
@@ -207,10 +264,9 @@ function setRunAtStartup (flag, store) {
             //name: app.getName() + " v."+app.getVersion() // to fix version in registry autorun
             name: app.getName()
         })
+        writeLog("Application was set to autostart")
       }
       if (isLinux) {
-        let executable = appNameLC;
-        let Path = '';
         if (process.env.APPIMAGE) {
           Path = process.env.APPIMAGE.replace(/\/[^\/]*$/, '/');
           executable = `"`+process.env.APPIMAGE+`"`;
@@ -218,23 +274,45 @@ function setRunAtStartup (flag, store) {
           Path = app.getPath('exe').replace(/\/[^\/]*$/, '/');
           executable = `"`+app.getPath('exe')+`"`;
         }
-        const isKDE = process.env.KDE_SESSION_VERSION !== undefined;
-        if (isKDE) {
-          executable = `'sleep 10 && ` + executable + `'`;
-        }
+        //const isKDE = process.env.KDE_SESSION_VERSION !== undefined;
+        //if (isKDE) {
+          //executable = `'sleep 10 && ` + executable + `'`;
+        //}
         let shortcut_contents = `[Desktop Entry]
 Categories=Multimedia
 Comment=Windows like ribbons screensaver app
-Exec=bash -c `+executable+`
-Path=`+Path+`
+Exec=bash -c 'systemctl --user start `+appNameLC+`.service'
 Name=Ribbons screensaver
 StartupWMClass=Ribbons screensaver
 Terminal=false
 Type=Application
 Icon=`+appNameLC+`
 X-GNOME-Autostart-Delay=10`;
+
+        let systemd_contents = `[Unit]
+Description=Windows like ribbons screensaver app
+After=graphical-session.target
+Requires=graphical-session.target
+
+[Service]
+Type=simple
+Restart=on-failure
+RestartSec=5s
+WorkingDirectory=`+Path+`
+ExecStart=bash -c '`+executable+` --systemd'
+Environment="NODE_ENV=production"
+
+[Install]
+WantedBy=graphical-session.target`;
         if (!fs.existsSync(app.getPath('home')+"/.config/autostart/"+appNameLC+".desktop")) {
+          //fs.unlinkSync(app.getPath('home')+"/.config/autostart/"+appNameLC+".desktop")
           fs.writeFileSync(app.getPath('home')+"/.config/autostart/"+appNameLC+".desktop",shortcut_contents, 'utf-8');
+        }
+        if ((!fs.existsSync(app.getPath('home')+"/.config/systemd/user/"+appNameLC+".service")) || exec_changed) {
+          fs.writeFileSync(app.getPath('home')+"/.config/systemd/user/"+appNameLC+".service",systemd_contents, 'utf-8');
+          exec(`systemctl --user daemon-reload`);
+          exec(`systemctl --user enable `+appNameLC+`.service`);
+          writeLog("Application was set to autostart as user systemd service")
         }
       }
       if (isMac) {
@@ -259,6 +337,7 @@ X-GNOME-Autostart-Delay=10`;
         if (!fs.existsSync(app.getPath('home')+"/Library/LaunchAgents/com.electron."+appNameLC+".plist")) {
           fs.writeFileSync(app.getPath('home')+"/Library/LaunchAgents/com.electron."+appNameLC+".plist",plist_contents, 'utf-8');
           exec('launchctl bootstrap enable '+app.getPath('home')+'/Library/LaunchAgents/com.electron.'+appNameLC+'.plist');
+          writeLog("Application was set to autostart as service")
         }
       }
     } else {
@@ -269,10 +348,18 @@ X-GNOME-Autostart-Delay=10`;
             //name: app.getName() + " v."+app.getVersion()  // to fix version in registry autorun
             name: app.getName()
         })
+        writeLog("Application was removed from autostart")
       }
       if (isLinux) {
+
         if (fs.existsSync(app.getPath('home')+"/.config/autostart/"+appNameLC+".desktop")) {
           fs.unlinkSync(app.getPath('home')+"/.config/autostart/"+appNameLC+".desktop")
+        }
+        if (fs.existsSync(app.getPath('home')+"/.config/systemd/user/"+appNameLC+".service")) {
+          exec(`systemctl --user disable `+appNameLC+`.service`);
+          fs.unlinkSync(app.getPath('home')+"/.config/systemd/user/"+appNameLC+".service")
+          exec(`systemctl --user daemon-reload`);
+          writeLog("Application was removed from autostart")
         }
       }
       if (isMac) {
@@ -280,47 +367,99 @@ X-GNOME-Autostart-Delay=10`;
           fs.unlinkSync(app.getPath('home')+"/Library/LaunchAgents/com.electron."+appNameLC+".plist");
           //exec('launchctl bootstrap disable com.electron.'+appNameLC);
           exec('launchctl bootstrap disable gui/"$(id -u)"/com.electron.'+appNameLC);
-
+          writeLog("Application was removed from autostart")
         }
       }
     }
 }
+
 function getResourceDirectory () {
   //return process.env.NODE_ENV === "development"
   if (!app.isPackaged) {
-    console.log(new Date().toLocaleString()+' App is in dev mode');
+
     let current_app_dir = app.getPath('userData')
     // don't delete if already not empty userData folder from prod app
     if (fs.readdirSync(current_app_dir).length === 0) {
       fs.rmSync(current_app_dir, { recursive: true, force: true });
     }
     app.setPath ('userData', current_app_dir+"-dev");
+
     return path.join(process.cwd())
   } else {
-    console.log(new Date().toLocaleString()+' App is in production mode');
     return path.join(process.resourcesPath, "app.asar.unpacked");
   }
 };
 
+    function writeLog(message,obj) {
+
+      const logFilePath = path.join(app.getPath('userData'), 'app.log');
+      const timestamp = new Date().toLocaleString();
+      const logMessage = `[${timestamp}] ${message}\n`;
+      if (obj) {
+        console.log( `[${timestamp}]`);
+        console.dir( message, { depth: null, colors: true });
+      } else {
+        console.log( `[${timestamp}] ${message}`);
+      }
+      try {
+        if (store.get('logging')) {
+          fs.appendFile(logFilePath, logMessage, (err) => {
+            if (err) {
+              console.error(`[${timestamp}] 'Error when tring to write log:'`, err);
+            }
+          });
+        }
+      }
+      catch(err) {
+        //console.log( `[${timestamp}] `+err);
+      }
+    }
+
+async function openLog(filePath) {
+
+  try {
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      await dialog.showMessageBox({
+        type: 'error',
+        message: 'File not found',
+        detail: `The file ${filePath} does not exist.`
+      });
+      return;
+    }
+
+    // Try to open the file
+    const error = await shell.openPath(filePath);
+    if (error) {
+      await dialog.showMessageBox({
+        type: 'error',
+        message: 'Failed to open file',
+        detail: `No application is associated with this file type. Error: ${error}`
+      });
+    }
+  } catch (err) {
+    writeLog('Unexpected error:', err);
+    await dialog.showMessageBox({
+      type: 'error',
+      message: 'Unexpected error',
+      detail: err.message
+    });
+  }
+}
+
 // **************** functions block end *********************************
 
 
-
-if (!isMac) {
-  var iconPath = path.resolve(getResourceDirectory(), "icon.png");
-  store = new Store();
-} else {
-  getResourceDirectory();
-  store = new Store();
-  var iconPath = path.join(__dirname,store.get('app_icon_name')||'iconTemplate.png');
-  
-
-}
-
 const gotTheLock = app.requestSingleInstanceLock();
 
+if (!app.isPackaged) {
+  writeLog(app.getName() + " v."+app.getVersion() + ' is started in dev mode');
+} else {
+  writeLog(app.getName() + " v."+app.getVersion() + ' is started in production mode');
+}
+
 if (!gotTheLock) {
-    console.log(new Date().toLocaleString()+" Found already running screensaver. Exiting!");
+    writeLog("Found already running screensaver. Exiting!");
     app.exit(0);
 } else {
     app.on('second-instance', (event) => {
@@ -339,7 +478,7 @@ if (!gotTheLock) {
       //}
     })
     try {
-      
+
         // temporary turn off console.log errors in case of app.exit(0) in AppImage
         process.stdout.on('error', (err) => {
           if (err.code === 'EPIPE') {
@@ -382,6 +521,16 @@ if (!gotTheLock) {
           store.set('idle_time', 60);
         }
 
+        // check if logging is configured and set default false if not
+        if (store.get('logging') === undefined) {
+          store.set('logging', false);
+        }
+
+        // save current app exec path in config file
+        if (!store.get('exec_path')) {
+          store.set('exec_path',app.getPath('exe'));
+        }
+
         // check if run_at_startup is configured and set default false value if not
         if (!store.get('run_at_startup')) {
           setRunAtStartup (false, store);
@@ -409,17 +558,20 @@ if (!gotTheLock) {
               click: () => {
                 displays.forEach((display) => {
                   if (!mainWindow[display.id].isVisible()) {
-                    app.console.log(new Date().toLocaleString()+" Start screensaver at display "+display.label);
+                    writeLog("Start screensaver at display "+display.label);
                     //run_screensaver();
                     mainWindow[display.id].setFullScreen(true);
                     //mainWindow[display.id].setFullScreenable(false);
                     mainWindow[display.id].webContents.send('send-options',optionsArray);
+                    if (isMac) {
+                      hideCursor(mainWindow[display.id]);
+                    }
                     mainWindow[display.id].show();
                     // delay activity tracking, otherwise we'll close immediately
                     setTimeout( function() {
                       setInterval(function () {
                         if (Math.round(SystemIdleTime.getIdleTime())<1) {
-                          console.log(new Date().toLocaleString()+" User activity, stop screensaver at display "+display.label);
+                          writeLog("User activity, stop screensaver at display "+display.label);
                           stopScreensaver(displays, mainWindow[display.id], this)
                         }
                       }, 500);
@@ -779,10 +931,34 @@ if (!gotTheLock) {
                   setRunAtStartup (option.checked, store);
                   // to fix cinnamon nemo desktop checked bug 
                   //if (!isMac) {
-                    restartApp();
+                    restartApp(option.checked);
                   //} 
 
               },
+            },
+             // set logging to file
+            {
+              label: i18n.__('logging'),
+              submenu: [
+                {
+                  label: i18n.__('logging_sw'),
+                  type: 'checkbox',
+                  checked: store.get('logging'),
+                  click: (option) => {
+                      store.set('logging', option.checked);
+                      restartApp();
+                  }
+                },
+                {
+                  label: i18n.__('logging_open'),
+                  //type: 'checkbox',
+                  enabled: store.get('logging'),
+                  click: () => {
+                    writeLog('Opening log file...');
+                    openLog(path.join(app.getPath('userData'), 'app.log'));
+                  }
+                },
+              ]
             },
             {
               label : i18n.__('about'),
@@ -808,6 +984,17 @@ if (!gotTheLock) {
           app.disableHardwareAcceleration();
         }
         
+        app.on('quit', function() {
+          writeLog(app.getName() + " v."+app.getVersion() + ' is exited')
+        })
+
+        process.on('SIGTERM', () => {
+          app.exit(0);
+        })
+        process.on('SIGINT', () => {
+          app.exit(0);
+        })
+
         // This method will be called when Electron has finished
         // initialization and is ready to create browser windows.
         app.on('ready', function() {
@@ -815,28 +1002,34 @@ if (!gotTheLock) {
           if (!isLinux) {
             powerMonitor.on('lock-screen', () => {
               isLocked_suspend = true;
-              console.log(new Date().toLocaleString()+' The screen is locked');
+              writeLog('The screen is locked');
               // Add your custom logic here
             });
             powerMonitor.on('unlock-screen', () => {
               isLocked_suspend = false;
-              console.log(new Date().toLocaleString()+' The screen is unlocked');
+              writeLog('The screen is unlocked');
               // Add your custom logic here
             });
             powerMonitor.on('suspend', () => {
               isLocked_suspend = true;
-              console.log(new Date().toLocaleString()+' The system is suspended');
+              writeLog('The system is suspended');
               // Add your custom logic here
             });
             powerMonitor.on('resume', () => {
               isLocked_suspend = false;
-              console.log(new Date().toLocaleString()+' The system is released');
+              writeLog('The system is released');
               // Add your custom logic here
             });
           } else {
             // to detect lock screen and suspend (linux)
             listenForScreenLockEvents().catch(console.error);
             listenForSuspendEvents().catch(console.error);
+            //check X11
+            if (detectWayland()) {
+              //writeLog("Application is not compatible with wayland protocol. Exiting.");
+              dialog.showErrorBox(i18n.__('error'), i18n.__('error3'));
+              app.exit(0);
+            }
             checkXwininfoInstalled().then((installed) => {
               // check xwininfo
               if (!installed) {
@@ -865,17 +1058,20 @@ if (!gotTheLock) {
                 }*/
                 displays.forEach((display) => {
                   if (!mainWindow[display.id].isVisible()) { 
-                    console.log(new Date().toLocaleString()+" Start screensaver at display "+display.label);
+                    writeLog("Start screensaver at display "+display.label);
                     //run_screensaver();
                     mainWindow[display.id].setFullScreen(true);
                     //mainWindow[display.id].setFullScreenable(false);
                     mainWindow[display.id].webContents.send('send-options',optionsArray);
+                    if (isMac) {
+                      hideCursor(mainWindow[display.id]);
+                    }
                     mainWindow[display.id].show();
                     // delay activity tracking, otherwise we'll close immediately
                     setTimeout( function() {
                       setInterval(function () {
                         if (Math.round(SystemIdleTime.getIdleTime())<1) {
-                          console.log(new Date().toLocaleString()+" User activity, stop screensaver at display "+display.label);
+                          writeLog("User activity, stop screensaver at display "+display.label);
                           stopScreensaver(displays, mainWindow[display.id], this)
                         }
                       }, 500);
@@ -891,16 +1087,22 @@ if (!gotTheLock) {
             //}
             // init graphics =)
             displays = screen.getAllDisplays();
+
             screen.on('display-removed', (event, display) => {
-              console.log(new Date().toLocaleString()+" Display "+display.name+" with id "+display.id+" was removed. Restart app...")
+              writeLog("Display "+display.label+" with id "+display.id+" was removed. Restart app...")
               restartApp();
             });
             screen.on('display-added', (event, display) => {
-              console.log(new Date().toLocaleString()+" Display "+display.name+" with id "+display.id+" was added. Restart app...")
+              writeLog("Display "+display.label+" with id "+display.id+" was added. Restart app...")
+              restartApp();
+            });
+            screen.on('display-metrics-changed', (event, display) => {
+              writeLog("Display "+display.label+" with id "+display.id+" was changed (resolution or other properties). Restart app...")
               restartApp();
             });
             // independent fullscreen window on each available monitor
             displays.forEach((display) => {
+                writeLog('Display found: '+display.label+" with id "+display.id);
                 const { x, y, width, height } = display.bounds;
 
                 // Create the browser window.
@@ -985,7 +1187,7 @@ if (!gotTheLock) {
                     if (isLocked_suspend) {
                       // force stop screensaver if system locked or suspunded during running screensaver
                       if (running_screensaver[display.id]) {
-                        console.log(new Date().toLocaleString()+" Running screensaver detected. Stopping it.")
+                        writeLog("Running screensaver detected. Stopping it.");
                         stopScreensaver(displays, mainWindow[display.id], this);
                       }
                       return;
@@ -1004,16 +1206,25 @@ if (!gotTheLock) {
                           });
                         }
                         catch(error) {
-                          console.log(new Date().toLocaleString()+error)
+                          writeLog(error)
                         }
+
+
                         var macNoActiveWin = false;
 
                         if (!curWindow[display.id]) {
                           if (isMac) {
                             macNoActiveWin = true;
                           } else {
-                          console.log(new Date().toLocaleString()+' Cannot get active window. Screensaver will not run.');
-                          return;
+                            if (isLinux) {
+                              // to fix fresh booted linux cinnamon DE without opened windows to run screensaver
+                              if (!process.env.XDG_CURRENT_DESKTOP?.toLowerCase().includes('cinnamon')) {
+                                writeLog('Cannot get active window. Screensaver will not run.');
+                                return;
+                              } else {
+                                macNoActiveWin = true;
+                              };
+                            }
                           }
                         }
 
@@ -1039,15 +1250,18 @@ if (!gotTheLock) {
                           if ((!running_screensaver[display.id])&&(!isFullscreen[display.id] || (isDesktopWindow(curWindow[display.id])))) {
                             //console.log('Current active window is not fullscreen or desktop. Running screensaver.');
                               if (!mainWindow[display.id].isVisible()) {
-                                  console.log(new Date().toLocaleString()+" Start screensaver at display "+display.label);
+                                  writeLog("Start screensaver at display "+display.label);
                                   mainWindow[display.id].setFullScreen(true);
                                   //mainWindow[display.id].setFullScreenable(false);
                                   mainWindow[display.id].webContents.send('send-options',optionsArray);
+                                  if (isMac) {
+                                    hideCursor(mainWindow[display.id]);
+                                  }
                                   mainWindow[display.id].showInactive();
                                   running_screensaver[display.id] = true;
                                   setInterval(function () {
                                     if (Math.round(SystemIdleTime.getIdleTime())<1) {
-                                      console.log(new Date().toLocaleString()+" User activity, stop screensaver at display "+display.label);
+                                      writeLog("User activity, stop screensaver at display "+display.label);
                                       stopScreensaver(displays, mainWindow[display.id], this)
                                     }
                                   }, 500)
@@ -1056,15 +1270,18 @@ if (!gotTheLock) {
                         } else {
                           //console.log('There is no active windows but it is Mac. Running screensaver.');
                             if (!mainWindow[display.id].isVisible()) {
-                                console.log(new Date().toLocaleString()+" Start screensaver at display "+display.label);
+                                writeLog("Start screensaver at display "+display.label);
                                 mainWindow[display.id].setFullScreen(true);
                                 //mainWindow[display.id].setFullScreenable(false);
                                 mainWindow[display.id].webContents.send('send-options',optionsArray);
+                                if (isMac) {
+                                  hideCursor(mainWindow[display.id]);
+                                }
                                 mainWindow[display.id].showInactive();
                                 running_screensaver[display.id] = true;
                                 setInterval(function () {
                                   if (Math.round(SystemIdleTime.getIdleTime())<1) {
-                                    console.log(new Date().toLocaleString()+" User activity, stop screensaver at display "+display.label);
+                                    writeLog("User activity, stop screensaver at display "+display.label);
                                     stopScreensaver(displays, mainWindow[display.id], this)
                                   }
                                 }, 500)
@@ -1091,7 +1308,7 @@ if (!gotTheLock) {
 
     }
     catch (err) {
-        console.log(new Date().toLocaleString()+err)
+        writeLog(err);
         fs.unlinkSync(app.getPath('userData')+"/config.json")
         restartApp();
     }
