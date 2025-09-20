@@ -45,6 +45,7 @@ Platform independent steps:
 ```
 git clone https://github.com/drlight17/ribbons-electron
 cd ./ribbons-electron
+chmod +x ./prepare.sh
 ./prepare.sh
 ```
 To run dev app use:
