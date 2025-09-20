@@ -45,9 +45,7 @@ Platform independent steps:
 ```
 git clone https://github.com/drlight17/ribbons-electron
 cd ./ribbons-electron
-npm install -g node-gyp
-npm install --save-dev electron-rebuild
-npx electron-rebuild
+./prepare.sh
 ```
 To run dev app use:
 ```
