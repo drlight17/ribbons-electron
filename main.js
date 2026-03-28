@@ -35,6 +35,8 @@ const appNameLC = packageJson.name;
 
 let optionsArray = [];
 
+let debounce = false;
+
 // list of known desktop manager processes, may be extended
 const desktopProcesses = [
     'explorer.exe', // Windows
@@ -136,6 +138,18 @@ async function restartApp(removed) {
   app.exit(0);
 }
 
+function execAsync(command) {
+  return new Promise((resolve, reject) => {
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve({ stdout, stderr });
+      }
+    });
+  });
+}
+
 // linux lock events listener
 async function listenForScreenLockEvents() {
   const bus = DBus.sessionBus();
@@ -190,14 +204,27 @@ function isDesktopWindow(window) {
 }
 
 // check non-X11 linux environment
-function detectWayland() {
+/*function detectWayland() {
   if (process.env.XDG_SESSION_TYPE === 'wayland' || process.env.WAYLAND_DISPLAY) {
     return true;
   }
+}*/
+
+// check xprop installed (linux)
+function checkXpropInstalled() {
+  return new Promise((resolve, reject) => {
+    exec('which xprop', (error, stdout, stderr) => {
+      if (error) {
+        resolve(false);
+      } else {
+        resolve(true);
+      }
+    });
+  });
 }
 
 // check Xwininfo installed (linux)
-function checkXwininfoInstalled() {
+/*function checkXwininfoInstalled() {
   return new Promise((resolve, reject) => {
     exec('which xwininfo', (error, stdout, stderr) => {
       if (error) {
@@ -207,7 +234,80 @@ function checkXwininfoInstalled() {
       }
     });
   });
+}*/
+
+async function getLinuxActiveWindow() {
+
+  try {
+    // 1. Get the active window ID
+    const { stdout: activeWinOut } = await execAsync('xprop -root _NET_ACTIVE_WINDOW');
+
+    const match = activeWinOut.match(/_NET_ACTIVE_WINDOW\(WINDOW\):\s+window id #\s+(0x[a-fA-F0-9]+)/);
+    if (!match) {
+      writeLog("Could not determine the active window ID.");
+      return false;
+    }
+
+    const activeWindowId = match[1];
+    //console.log(`[DEBUG] Active Window ID: ${activeWindowId}`);
+
+    // 2. Check if the active window has the FULLSCREEN state
+    const { stdout: winPropsOut } = await execAsync(`xprop -id ${activeWindowId}`);
+    const isFullscreen = winPropsOut.includes('_NET_WM_STATE_FULLSCREEN');
+    //console.log(`[DEBUG] Fullscreen State Found: ${isFullscreen}`);
+
+    // 3. Get the window name (application name/title) using xprop
+    let appName = 'Unknown';
+    let windowTitle = 'Unknown';
+
+    try {
+      // Try xprop for _NET_WM_NAME first (UTF-8)
+      const { stdout: nameOut } = await execAsync(`xprop -id ${activeWindowId} _NET_WM_NAME`);
+      const nameMatch = nameOut.match(/_NET_WM_NAME\(\w+\) = "(.*)"/);
+      if (nameMatch) {
+        windowTitle = nameMatch[1];
+      }
+
+      // Try xprop for WM_CLASS (application ID)
+      const { stdout: classOut } = await execAsync(`xprop -id ${activeWindowId} WM_CLASS`);
+      const classMatch = classOut.match(/WM_CLASS\(\w+\) = ".*",\s+"([^"]+)"/);
+      if (classMatch) {
+        appName = classMatch[1]; // Usually the second part is the class name used by applications
+      }
+
+      // Fallback: try xwininfo for title if _NET_WM_NAME wasn't found
+      /*if (windowTitle === 'Unknown') {
+         const { stdout: infoOut } = await execAsync(`xwininfo -id ${activeWindowId} -stats`);
+         const titleMatch = infoOut.match(/xwininfo: Window id: .* "(.+)"/);
+         if (titleMatch) {
+            windowTitle = titleMatch[1];
+         }
+      }*/
+
+    } catch (detailsErr) {
+      writeLog("Could not retrieve window details (name/class):"+detailsErr.message);
+      // Proceed even if details retrieval fails
+    }
+
+
+    //return activeWindowId;
+    return {
+      owner: {
+        name: appName
+      },
+      title: windowTitle,
+      fullscreen: isFullscreen,
+      window_id: activeWindowId
+    };
+
+
+  }
+  catch (error) {
+    writeLog(`Failed to query XWayland/X11 properties for fullscreen info: ${error.message}`);
+    return []; // Return empty array on failure
+  }
 }
+
 
 function appendLanguages(contextMenu,lang_files) {
   //console.log(typeof(lang_files));
@@ -558,11 +658,11 @@ if (!gotTheLock) {
               click: () => {
                 displays.forEach((display) => {
                   if (!mainWindow[display.id].isVisible()) {
-                    writeLog("Start screensaver at display "+display.label);
+                    writeLog(`Start screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
                     //run_screensaver();
                     mainWindow[display.id].setFullScreen(true);
                     //mainWindow[display.id].setFullScreenable(false);
-                    mainWindow[display.id].webContents.send('send-options',optionsArray);
+                    mainWindow[display.id].webContents.send('send-options',optionsArray[display.id]);
                     if (isMac) {
                       hideCursor(mainWindow[display.id]);
                     }
@@ -571,7 +671,7 @@ if (!gotTheLock) {
                     setTimeout( function() {
                       setInterval(function () {
                         if (Math.round(SystemIdleTime.getIdleTime())<1) {
-                          writeLog("User activity, stop screensaver at display "+display.label);
+                          writeLog(`User activity, stop screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
                           stopScreensaver(displays, mainWindow[display.id], this)
                         }
                       }, 500);
@@ -846,18 +946,54 @@ if (!gotTheLock) {
                       }
                     },
                   ]
-                }
+                },
+                // set show datetime
+                {
+                  label: i18n.__('show_datetime'),
+                  submenu: [
+                    {
+                      label: i18n.__('logging_sw'),
+                      type: 'checkbox',
+                      checked: store.get('show_datetime'),
+                      click: (option) => {
+                          store.set('show_datetime', option.checked);
+                          restartApp();
+                      }
+                    },
+                    { type: 'separator' },
+                    {
+                      label: i18n.__('datetime_front'),
+                      type: 'checkbox',
+                      enabled: store.get('show_datetime') && !store.get('randomize_datetime_pos'),
+                      checked: store.get('datetime_front'),
+                      click: (option) => {
+                        store.set('datetime_front', option.checked);
+                        restartApp();
+                      }
+                    },
+                    {
+                      label: i18n.__('randomize_datetime_pos'),
+                      type: 'checkbox',
+                      enabled: store.get('show_datetime'),
+                      checked: store.get('randomize_datetime_pos'),
+                      click: (option) => {
+                        store.set('randomize_datetime_pos', option.checked);
+                        restartApp();
+                      }
+                    }
+                  ]
+                },
               ]
             },
             {
               label: i18n.__('max_idle'),
               submenu: [
                 /*{
-                  label: '5 sec dev',
+                  label: '3' +i18n.__('sec'),
                   type: 'checkbox',
-                  checked: store.get('idle_time') === 5 ? true : false,
+                  checked: store.get('idle_time') === 3 ? true : false,
                   click: () => {
-                    store.set('idle_time',5);
+                    store.set('idle_time',3);
                     restartApp();
                   }
                 },*/
@@ -949,6 +1085,7 @@ if (!gotTheLock) {
                       restartApp();
                   }
                 },
+                { type: 'separator' },
                 {
                   label: i18n.__('logging_open'),
                   //type: 'checkbox',
@@ -1025,18 +1162,27 @@ if (!gotTheLock) {
             listenForScreenLockEvents().catch(console.error);
             listenForSuspendEvents().catch(console.error);
             //check X11
-            if (detectWayland()) {
+            /*if (detectWayland()) {
               //writeLog("Application is not compatible with wayland protocol. Exiting.");
               dialog.showErrorBox(i18n.__('error'), i18n.__('error3'));
               app.exit(0);
-            }
-            checkXwininfoInstalled().then((installed) => {
-              // check xwininfo
+            }*/
+
+            checkXpropInstalled().then((installed) => {
+              // check xprop
               if (!installed) {
                 dialog.showErrorBox(i18n.__('error'), i18n.__('error2'));
                 app.exit(0);
               }
             });
+            /*checkXwininfoInstalled().then((installed) => {
+              // check xwininfo
+              if (!installed) {
+                dialog.showErrorBox(i18n.__('error'), i18n.__('error2'));
+                app.exit(0);
+              }
+            });*/
+
           }
           //force hide dockicon on mac
             if (isMac) app.dock.hide();
@@ -1058,11 +1204,11 @@ if (!gotTheLock) {
                 }*/
                 displays.forEach((display) => {
                   if (!mainWindow[display.id].isVisible()) { 
-                    writeLog("Start screensaver at display "+display.label);
+                    writeLog(`Start screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
                     //run_screensaver();
                     mainWindow[display.id].setFullScreen(true);
                     //mainWindow[display.id].setFullScreenable(false);
-                    mainWindow[display.id].webContents.send('send-options',optionsArray);
+                    mainWindow[display.id].webContents.send('send-options',optionsArray[display.id]);
                     if (isMac) {
                       hideCursor(mainWindow[display.id]);
                     }
@@ -1071,7 +1217,7 @@ if (!gotTheLock) {
                     setTimeout( function() {
                       setInterval(function () {
                         if (Math.round(SystemIdleTime.getIdleTime())<1) {
-                          writeLog("User activity, stop screensaver at display "+display.label);
+                          writeLog(`User activity, stop screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
                           stopScreensaver(displays, mainWindow[display.id], this)
                         }
                       }, 500);
@@ -1088,21 +1234,30 @@ if (!gotTheLock) {
             // init graphics =)
             displays = screen.getAllDisplays();
 
+            clearTimeout(debounce);
+          
             screen.on('display-removed', (event, display) => {
-              writeLog("Display "+display.label+" with id "+display.id+" was removed. Restart app...")
-              restartApp();
+              debounce = setTimeout(function() {
+                writeLog("Display "+display.label+" with id "+display.id+" was removed. Restart app...")
+                restartApp();
+              }, 5000);
             });
             screen.on('display-added', (event, display) => {
-              writeLog("Display "+display.label+" with id "+display.id+" was added. Restart app...")
-              restartApp();
+              debounce = setTimeout(function() {
+                writeLog("Display "+display.label+" with id "+display.id+" was added. Restart app...")
+                restartApp();
+              }, 5000);
             });
             screen.on('display-metrics-changed', (event, display) => {
-              writeLog("Display "+display.label+" with id "+display.id+" was changed (resolution or other properties). Restart app...")
-              restartApp();
+              debounce = setTimeout(function() {
+                writeLog("Display "+display.label+" with id "+display.id+" was changed (resolution or other properties). Restart app...")
+                restartApp();
+              }, 5000);
             });
+
             // independent fullscreen window on each available monitor
             displays.forEach((display) => {
-                writeLog('Display found: '+display.label+" with id "+display.id);
+                writeLog(`Display found: ${display.label||'NONAME'} (id ${display.id})`);
                 const { x, y, width, height } = display.bounds;
 
                 // Create the browser window.
@@ -1138,11 +1293,18 @@ if (!gotTheLock) {
                 // and load the index.html of the app.
                 mainWindow[display.id].loadFile('index.html');
 
-                optionsArray["ribbonCount"] = store.get('max_visible_ribbons');
-                optionsArray["colorCycleSpeed"] = store.get('color_cycle_speed');
-                optionsArray["horizontalSpeed"] = store.get('horizontal_speed');
-                optionsArray["singleColor"] = store.get('single_color');
-                optionsArray["theme"] = store.get('theme') == 'auto' ? system_theme : store.get('theme');
+                optionsArray[display.id] = {
+                  ribbonCount: store.get('max_visible_ribbons'),
+                  colorCycleSpeed: store.get('color_cycle_speed'),
+                  horizontalSpeed: store.get('horizontal_speed'),
+                  singleColor: store.get('single_color'),
+                  theme: store.get('theme') == 'auto' ? system_theme : store.get('theme'),
+                  locale: store.get('locale'),
+                  datetime_front: store.get('datetime_front'),
+                  show_datetime: store.get('show_datetime'),
+                  randomize_datetime_pos: store.get('randomize_datetime_pos'),
+                  display_bounds: display.bounds
+                }
 
                 // Hide the menu
                 mainWindow[display.id].setMenu(null);
@@ -1167,10 +1329,10 @@ if (!gotTheLock) {
                 applicationVersion: "v."+app.getVersion(),
                 authors: ["<a href='https://github.com/drlight17'>drlight17</a>"],
                 version: app.getVersion(),
-                copyright: "Lisense AGPLv3 ©2024",
+                copyright: "Lisense AGPLv3 ©2026",
                 iconPath: iconPath,
                 //iconPath: path.resolve(getResourceDirectory(), "icon.png"),
-                website: "https://drlight17.github.io/"+appNameLC+"-page"
+                website: "https://ribbons.drlight.fun/"
             });
 
             // dont use desktop-idle in windows
@@ -1200,15 +1362,19 @@ if (!gotTheLock) {
                     if (Math.round(SystemIdleTime.getIdleTime()) >= store.get('idle_time')) {
                       (async () => {
                         try {
-                          curWindow[display.id] = await activeWindow({
-                            accessibilityPermission: false,
-                            screenRecordingPermission: false
-                          });
+                          if (!isLinux) {
+                            curWindow[display.id] = await activeWindow({
+                              accessibilityPermission: false,
+                              screenRecordingPermission: false
+                            });
+                          } else {
+                            //writeLog("Get active window state using xprop.");
+                            curWindow[display.id] = await getLinuxActiveWindow();
+                          }
                         }
                         catch(error) {
                           writeLog(error)
                         }
-
 
                         var macNoActiveWin = false;
 
@@ -1229,31 +1395,39 @@ if (!gotTheLock) {
                         }
 
                         if (!macNoActiveWin) {
-                          const { bounds } = curWindow[display.id];
-                          
+
+                          const bounds = !isLinux ? curWindow[display.id]?.bounds : null;
+                          //const { bounds } = curWindow[display.id];
+
                           // on mac some fullscreen apps height is not fetched so skip it 
-                          if (!isMac) {
+                          if (isWindows) {
                             isFullscreen[display.id] =
                               bounds.x === x &&
                               bounds.y === y &&
                               bounds.width === width &&
                               bounds.height === height;
-                          } else {
+                          } else if (isMac) {
                             isFullscreen[display.id] =
                               bounds.x === x &&
                               bounds.y === y &&
                               bounds.width === width;
+                          } else {
+                            // if linux run screensavers at all display without exclude active fullscreen app (we have no info about bounds from xprop)
+                            //writeLog(curWindow[display.id], true)
+                            isFullscreen[display.id] = curWindow[display.id].fullscreen;
+
                           }
-                          /*console.log("Display: "+display.id+" Active app is fullscreen: "+isFullscreen[display.id] + 
+
+                          /*console.log("Display: "+display.label+" Active app is fullscreen: "+isFullscreen[display.id] + 
                             " Running screensaver: "+running_screensaver[display.id])*/
 
                           if ((!running_screensaver[display.id])&&(!isFullscreen[display.id] || (isDesktopWindow(curWindow[display.id])))) {
                             //console.log('Current active window is not fullscreen or desktop. Running screensaver.');
                               if (!mainWindow[display.id].isVisible()) {
-                                  writeLog("Start screensaver at display "+display.label);
+                                  writeLog(`Start screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
                                   mainWindow[display.id].setFullScreen(true);
                                   //mainWindow[display.id].setFullScreenable(false);
-                                  mainWindow[display.id].webContents.send('send-options',optionsArray);
+                                  mainWindow[display.id].webContents.send('send-options',optionsArray[display.id]);
                                   if (isMac) {
                                     hideCursor(mainWindow[display.id]);
                                   }
@@ -1261,7 +1435,7 @@ if (!gotTheLock) {
                                   running_screensaver[display.id] = true;
                                   setInterval(function () {
                                     if (Math.round(SystemIdleTime.getIdleTime())<1) {
-                                      writeLog("User activity, stop screensaver at display "+display.label);
+                                      writeLog(`User activity, stop screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
                                       stopScreensaver(displays, mainWindow[display.id], this)
                                     }
                                   }, 500)
@@ -1270,10 +1444,10 @@ if (!gotTheLock) {
                         } else {
                           //console.log('There is no active windows but it is Mac. Running screensaver.');
                             if (!mainWindow[display.id].isVisible()) {
-                                writeLog("Start screensaver at display "+display.label);
+                                writeLog(`Start screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
                                 mainWindow[display.id].setFullScreen(true);
                                 //mainWindow[display.id].setFullScreenable(false);
-                                mainWindow[display.id].webContents.send('send-options',optionsArray);
+                                mainWindow[display.id].webContents.send('send-options',optionsArray[display.id]);
                                 if (isMac) {
                                   hideCursor(mainWindow[display.id]);
                                 }
@@ -1281,7 +1455,7 @@ if (!gotTheLock) {
                                 running_screensaver[display.id] = true;
                                 setInterval(function () {
                                   if (Math.round(SystemIdleTime.getIdleTime())<1) {
-                                    writeLog("User activity, stop screensaver at display "+display.label);
+                                    writeLog(`User activity, stop screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
                                     stopScreensaver(displays, mainWindow[display.id], this)
                                   }
                                 }, 500)

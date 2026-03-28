@@ -469,6 +469,8 @@
 // the screensaver glue: making sure we quit when needed
 const { ipcRenderer } = require('electron')
 
+import { updateDateTime, showDateTime, setFront, randomizePosition } from './datetime.js';
+
 let Ribbons_instance = null;
 var colorCycleSpeed = null;
 var colorSaturation = null;
@@ -545,6 +547,24 @@ ipcRenderer.on('send-options', (event, got_options) => {
 
     start_Ribbons(colorSaturation, colorCycleSpeed, options);
 
+    // call datetime if it is on
+    if (options["show_datetime"]) {
+        updateDateTime(options["locale"]);
+        setInterval(() => updateDateTime(options["locale"]), 1000);
+        
+        // set front style
+        if (options["datetime_front"]) {
+            setFront();
+        }
+        
+        // set randomize position
+        if (options["randomize_datetime_pos"]) {
+            //randomizePosition(options['display_bounds']);
+            setInterval(() => randomizePosition(options['display_bounds']), 1000);
+        } else {
+            showDateTime();
+        }
+    }
 });
 // force hide mouse cursor
 document.body.style.cursor = "none";

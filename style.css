@@ -1,6 +1,8 @@
 body{
     background-color: rgb(0, 0, 0);
     transition: background 0.5s ease-in-out;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
 }
 span{
     display: block;
@@ -29,3 +31,96 @@ button{
     background-color: white;
 }
 
+.light .datetime-container{
+    background-color: rgb(191 191 212 / 35%);
+    opacity: .5;
+}
+
+.light .date{
+    color: #333;
+}
+
+.light .time{
+    color: black;
+}
+
+.datetime-container.front {
+    z-index: 4;
+    opacity: .7;
+}
+
+.datetime-container.hidden {
+    opacity: 0;
+    /*transition: opacity 5s ease-in-out;*/
+    /*transform: scale(1.5);*/
+}
+
+.datetime-container {
+    backdrop-filter: blur(30px);
+    max-width: fit-content;
+    text-align: center;
+    padding: 20px;
+    border-radius: 10px;
+    background-color: rgb(191 191 212 / 20%);
+    z-index: -1;
+    position: absolute;
+    opacity: .4;
+    /*for non-randomized centered position */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.date {
+    font-size:clamp(1.5rem, 3vw, 3rem);
+    /* color: #333; */
+    color: rgb(255 255 255 / 50%);
+}
+.time {
+    font-size:clamp(2rem, 3vw, 4rem);
+    /*color: #007bff;*/
+    color: white;
+    margin-top: 10px;
+}
+
+.appear-disappear-1 {
+    animation: appearDisappear1 60s ease-in-out;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+}
+
+.appear-disappear-2 {
+    animation: appearDisappear2 60s ease-in-out;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+}
+
+@keyframes appearDisappear1 {
+    0% {
+        opacity: 0;
+        transform: scale(0.2);
+    }
+    50% {
+        opacity: 0.4;
+        transform: scale(1.5);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(3);
+    }
+}
+
+@keyframes appearDisappear2 {
+    0% {
+        opacity: 0;
+        transform: scale(3);
+    }
+    50% {
+        opacity: 0.4;
+        transform: scale(1.5);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(0.2);
+    }
+}
