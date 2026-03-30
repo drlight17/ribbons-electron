@@ -986,7 +986,7 @@ if (!gotTheLock) {
                     {
                       label: i18n.__('datetime_front'),
                       type: 'checkbox',
-                      enabled: store.get('show_datetime') && !store.get('randomize_datetime_pos'),
+                      enabled: store.get('show_datetime') && !store.get('randomize_datetime_pos') ? true : false,
                       checked: store.get('datetime_front'),
                       click: (option) => {
                         store.set('datetime_front', option.checked);
@@ -996,7 +996,7 @@ if (!gotTheLock) {
                     {
                       label: i18n.__('randomize_datetime_pos'),
                       type: 'checkbox',
-                      enabled: store.get('show_datetime'),
+                      enabled: store.get('show_datetime') ? true : false,
                       checked: store.get('randomize_datetime_pos'),
                       click: (option) => {
                         store.set('randomize_datetime_pos', option.checked);
