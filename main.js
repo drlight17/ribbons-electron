@@ -25,7 +25,8 @@ import Store from 'electron-store';
 const system_theme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
 import fs from "fs";
 //import { join } from 'path';
-import SystemIdleTime from 'desktop-idle';
+//import {SystemIdleTime from 'desktop-idle';
+import { desktopIdle } from 'node-desktop-idle-v2';
 
 //import {activeWindow} from 'get-windows';
 import { activeWindow } from "@deepfocus/get-windows";
@@ -235,6 +236,26 @@ function checkXpropInstalled() {
     });
   });
 }*/
+
+async function checkInputGroupMembership() {
+  try {
+    // Run 'groups' command to get current user's groups
+    const { stdout } = await execAsync('groups');
+    const groupsList = stdout.trim().split(' '); // Groups are usually space-separated
+
+    //console.log('Current user is in groups:', groupsList);
+
+    const isInInputGroup = groupsList.includes('input');
+    //console.log(`Is user in 'input' group? ${isInInputGroup}`);
+
+    return isInInputGroup;
+
+  } catch (error) {
+    writeLog(`Error checking groups: ${error.message}` );
+    // Handle error appropriately, maybe assume not in group
+    return false;
+  }
+}
 
 async function getLinuxActiveWindow() {
 
@@ -668,9 +689,10 @@ if (!gotTheLock) {
                     }
                     mainWindow[display.id].show();
                     // delay activity tracking, otherwise we'll close immediately
+                    
                     setTimeout( function() {
                       setInterval(function () {
-                        if (Math.round(SystemIdleTime.getIdleTime())<1) {
+                        if (Math.round(desktopIdle.getIdleTime())<1) {
                           writeLog(`User activity, stop screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
                           stopScreensaver(displays, mainWindow[display.id], this)
                         }
@@ -1122,13 +1144,16 @@ if (!gotTheLock) {
         }
         
         app.on('quit', function() {
+          desktopIdle.stopMonitoring();
           writeLog(app.getName() + " v."+app.getVersion() + ' is exited')
         })
 
         process.on('SIGTERM', () => {
+          writeLog(app.getName() + " v."+app.getVersion() + ' is exited')
           app.exit(0);
         })
         process.on('SIGINT', () => {
+          writeLog(app.getName() + " v."+app.getVersion() + ' is exited')
           app.exit(0);
         })
 
@@ -1183,6 +1208,27 @@ if (!gotTheLock) {
               }
             });*/
 
+            // start idle  system monitoring
+            writeLog(`Start xinput monitoring.`)
+            //check user permission to input group
+            checkInputGroupMembership()
+            .then(isMember => {
+              if (isMember) {
+                //writeLog(`User has permission (member of 'input' group).`);
+                // Proceed with actions requiring input group permissions
+                desktopIdle.startMonitoring();
+              } else {
+                //writeLog(`User does not have 'input' group permissions.`);
+                // Show error message or disable features
+                dialog.showErrorBox(i18n.__('error'), i18n.__('error4'));
+                app.exit(0);
+              }
+            })
+            .catch(error => {
+              writeLog(error)
+              app.exit(0);
+            });
+
           }
           //force hide dockicon on mac
             if (isMac) app.dock.hide();
@@ -1214,9 +1260,10 @@ if (!gotTheLock) {
                     }
                     mainWindow[display.id].show();
                     // delay activity tracking, otherwise we'll close immediately
+                    
                     setTimeout( function() {
                       setInterval(function () {
-                        if (Math.round(SystemIdleTime.getIdleTime())<1) {
+                        if (Math.round(desktopIdle.getIdleTime())<1) {
                           writeLog(`User activity, stop screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
                           stopScreensaver(displays, mainWindow[display.id], this)
                         }
@@ -1359,7 +1406,7 @@ if (!gotTheLock) {
                       console.log('Time before screensaver run: ' + time_left + 's')
                     }*/
                   
-                    if (Math.round(SystemIdleTime.getIdleTime()) >= store.get('idle_time')) {
+                    if (Math.round(desktopIdle.getIdleTime()) >= store.get('idle_time')) {
                       (async () => {
                         try {
                           if (!isLinux) {
@@ -1433,8 +1480,9 @@ if (!gotTheLock) {
                                   }
                                   mainWindow[display.id].showInactive();
                                   running_screensaver[display.id] = true;
+                                  
                                   setInterval(function () {
-                                    if (Math.round(SystemIdleTime.getIdleTime())<1) {
+                                    if (Math.round(desktopIdle.getIdleTime())<1) {
                                       writeLog(`User activity, stop screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
                                       stopScreensaver(displays, mainWindow[display.id], this)
                                     }
@@ -1453,8 +1501,9 @@ if (!gotTheLock) {
                                 }
                                 mainWindow[display.id].showInactive();
                                 running_screensaver[display.id] = true;
+
                                 setInterval(function () {
-                                  if (Math.round(SystemIdleTime.getIdleTime())<1) {
+                                  if (Math.round(desktopIdle.getIdleTime())<1) {
                                     writeLog(`User activity, stop screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
                                     stopScreensaver(displays, mainWindow[display.id], this)
                                   }

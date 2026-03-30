@@ -124,10 +124,10 @@
     "@deepfocus/get-windows": "^1.0.21",
     "@electron/packager": "latest",
     "dbus-next": "latest",
-    "desktop-idle": "^1.3.0",
     "electron-fetch": "^1.9.1",
     "electron-prompt": "latest",
     "electron-store": "^8.2.0",
+    "node-desktop-idle-v2": "latest",
     "robotjs": "latest"
   },
   "devDependencies": {
