@@ -20,13 +20,15 @@ export function setFront(){
 }
 
 function toggleAnimation(element) {
-    if (element.classList.contains('appear-disappear-1')) {
-        element.classList.remove('appear-disappear-1');
-        element.classList.add('appear-disappear-2');
-    } else {
-        element.classList.remove('appear-disappear-2');
-        element.classList.add('appear-disappear-1');
-    }
+  element.classList.remove('appear-disappear-1', 'appear-disappear-2');
+  
+  void element.offsetWidth; // Critical browser reflow trigger
+  
+  const nextClass = Math.random() < 0.5 
+    ? 'appear-disappear-1' 
+    : 'appear-disappear-2';
+  
+  element.classList.add(nextClass);
 }
 
 
@@ -46,6 +48,7 @@ function getActiveAnimations(element) {
 }
 
 export function randomizePosition(bounds) {
+
     
     let element = document.getElementsByClassName('datetime-container')[0];
 
@@ -54,6 +57,16 @@ export function randomizePosition(bounds) {
         //console.log("Animation is currently running. Skip new run!");
         return; // Skip if animation is active
     }
+
+    // set randomize datetime animation duration
+
+    // Randomize duration for EACH element (30-60s)
+    document.querySelectorAll('.appear-disappear-1').forEach(el => {
+        el.style.setProperty('--dur', `${Math.random() * 30 + 30}s`);
+    });
+    document.querySelectorAll('.appear-disappear-2').forEach(el => {
+        el.style.setProperty('--dur', `${Math.random() * 30 + 30}s`);
+    });
 
     let { left, top } = getRandomPosition(bounds, 20, 400);
 

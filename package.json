@@ -11,7 +11,7 @@
   "type": "module",
   "icon": "icon.png",
   "main": "./main.js",
-  "version": "0.4.0-alpha",
+  "version": "0.4.1-alpha",
   "author": "Yuri Samoilov <root@drlight.fun>",
   "homepage": "https://github.com/drlight17/ribbons-electron",
   "build": {
@@ -128,6 +128,7 @@
     "electron-prompt": "latest",
     "electron-store": "^8.2.0",
     "node-desktop-idle-v2": "latest",
+    "node-hid": "latest",
     "robotjs": "latest"
   },
   "devDependencies": {

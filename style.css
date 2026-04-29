@@ -84,13 +84,13 @@ button{
 }
 
 .appear-disappear-1 {
-    animation: appearDisappear1 60s ease-in-out;
+    animation: appearDisappear1 var(--dur) ease-in-out;
     animation-timing-function: linear;
     animation-fill-mode: forwards;
 }
 
 .appear-disappear-2 {
-    animation: appearDisappear2 60s ease-in-out;
+    animation: appearDisappear2 var(--dur) ease-in-out;
     animation-timing-function: linear;
     animation-fill-mode: forwards;
 }

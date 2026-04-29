@@ -8,7 +8,7 @@ MacOS 10.15 Catalina (since [0.2.2-alpha](https://github.com/drlight17/ribbons-e
 
 ## 📦 Download and install
 
-Go to landing page https://ribbons.drlight.fun/, download your platform latest version and follow installation
+Go to landing page https://drlight17.github.io/, download your platform latest version and follow installation
 
 ---
 
@@ -39,7 +39,7 @@ pip install setuptools
 ```
 For Linux:
 ```
-apt install libxss-dev pkg-config
+apt install libxss-dev pkg-config libusb-1.0-0-dev
 ```
 Platform independent steps:
 ```

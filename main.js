@@ -18,6 +18,8 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const robot = require('robotjs');
 
+const HID = require('node-hid');
+
 const isMac = process.platform === 'darwin'
 const isWindows = process.platform === 'win32'
 const isLinux = process.platform === 'linux'
@@ -59,6 +61,7 @@ let running_screensaver = {};
 let displays = null;
 let store = null;
 let isLocked_suspend = false;
+let idle_time = 0;
 
 // Stay open only if the screensaver should be shown (/s param)
 // We don't implement /c (configure) and /p (preview) for now... 
@@ -349,7 +352,7 @@ function appendLanguages(contextMenu,lang_files) {
   //console.log(contextMenu.getMenuItemById("to_add_lang"));
   contextMenu.insert(contextMenu.items.findIndex(item => item.id === "to_add_lang")+1,new MenuItem({
         id: "lang",
-        label: i18n.__('lang'),
+        label: '🌐 ' + i18n.__('lang'),
         submenu: langSubmenu,
     }));
   //console.log(contextMenu)
@@ -675,7 +678,7 @@ if (!gotTheLock) {
         let appIconMenuTemplate = [
 
             {
-              label: i18n.__('show_now'),
+              label: '⿻  ' + i18n.__('show_now'),
               click: () => {
                 displays.forEach((display) => {
                   if (!mainWindow[display.id].isVisible()) {
@@ -692,7 +695,7 @@ if (!gotTheLock) {
                     
                     setTimeout( function() {
                       setInterval(function () {
-                        if (Math.round(desktopIdle.getIdleTime())<1) {
+                        if (idle_time<1) {
                           writeLog(`User activity, stop screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
                           stopScreensaver(displays, mainWindow[display.id], this)
                         }
@@ -704,13 +707,13 @@ if (!gotTheLock) {
             },
             { type: 'separator' },
             {
-              label: i18n.__('visuals'),
+              label: '⚙️ ' + i18n.__('visuals'),
               submenu: [
                 {
-                  label: i18n.__('theme'),
+                  label: '🌓 ' + i18n.__('theme'),
                   submenu: [
                     {
-                      label: i18n.__('auto'),
+                      label: '🌓 ' + i18n.__('auto'),
                       type: 'checkbox',
                       checked: ((store.get('theme') === 'auto') || (!store.get('theme'))) ? true : false,
                       click: () => {
@@ -719,7 +722,7 @@ if (!gotTheLock) {
                       }
                     },
                     {
-                      label: i18n.__('light'),
+                      label: '☀️ ' + i18n.__('light'),
                       type: 'checkbox',
                       checked: store.get('theme') === 'light' ? true : false,
                       click: () => {
@@ -728,7 +731,7 @@ if (!gotTheLock) {
                       }
                     },
                     {
-                      label: i18n.__('dark'),
+                      label: '🌙 ' + i18n.__('dark'),
                       type: 'checkbox',
                       checked: store.get('theme') === 'dark' ? true : false,
                       click: () => {
@@ -739,10 +742,10 @@ if (!gotTheLock) {
                   ]
                 },
                 {
-                  label: i18n.__('rib_color'),
+                  label: '🌈 ' + i18n.__('rib_color'),
                   submenu: [
                     {
-                      label: i18n.__('rndm_col'),
+                      label: '🌈 ' + i18n.__('rndm_col'),
                       type: 'checkbox',
                       checked: ((store.get('single_color') === false) || (!store.get('single_color')))  ? true : false,
                       click: () => {
@@ -751,7 +754,7 @@ if (!gotTheLock) {
                       }
                     },
                     {
-                      label: i18n.__('tricolor'),
+                      label: '🇷🇺 ' + i18n.__('tricolor'),
                       type: 'checkbox',
                       checked: store.get('single_color') === 667  ? true : false,
                       click: () => {
@@ -836,7 +839,7 @@ if (!gotTheLock) {
                   ]
                 },
                 {
-                  label: i18n.__('max_vis_rib'),
+                  label: '⚡ ' + i18n.__('max_vis_rib'),
                   enabled: (store.get('single_color') !== 667)  ? true : false,
                   submenu: [
                     {
@@ -887,7 +890,7 @@ if (!gotTheLock) {
                   ]
                 },
                 {
-                  label: i18n.__('rib_col_cyc_speed'),
+                  label: '🔃 ' + i18n.__('rib_col_cyc_speed'),
                   enabled: ((store.get('single_color') === false) || (!store.get('single_color')))  ? true : false,
                   submenu: [
                     {
@@ -929,7 +932,7 @@ if (!gotTheLock) {
                   ]
                 },
                 {
-                  label: i18n.__('horizontal_speed'),
+                  label: '↔ ' + i18n.__('horizontal_speed'),
                   submenu: [
                     {
                       label: i18n.__('slow'),
@@ -971,7 +974,7 @@ if (!gotTheLock) {
                 },
                 // set show datetime
                 {
-                  label: i18n.__('show_datetime'),
+                  label: '📅 ' + i18n.__('show_datetime'),
                   submenu: [
                     {
                       label: i18n.__('logging_sw'),
@@ -1008,7 +1011,7 @@ if (!gotTheLock) {
               ]
             },
             {
-              label: i18n.__('max_idle'),
+              label: '⏱️ ' + i18n.__('max_idle'),
               submenu: [
                 /*{
                   label: '3' +i18n.__('sec'),
@@ -1069,34 +1072,40 @@ if (!gotTheLock) {
             { type: 'separator', id: 'to_add_lang' },
             {
               // set hw acceleration
-              label: i18n.__('hw_acc'),
-              type: 'checkbox',
-              checked: store.get('hw_acc'),
-              //enabled: (app.isPackaged)  ? true : false,
-              click: (option) => {
-                  store.set('hw_acc', option.checked);
-                  restartApp();
-              },
+              label: '📊 ' + i18n.__('hw_acc'),
+              submenu: [
+                {
+                  label: i18n.__('logging_sw'),
+                  type: 'checkbox',
+                  checked: store.get('hw_acc'),
+                  //enabled: (app.isPackaged)  ? true : false,
+                  click: (option) => {
+                      store.set('hw_acc', option.checked);
+                      restartApp();
+                  }
+                }
+              ],
             },
             {
-              // set run at startup
-              label: i18n.__('run_at_startup'),
-              type: 'checkbox',
-              checked: store.get('run_at_startup'),
-              enabled: (app.isPackaged)  ? true : false,
-              click: (option) => {
-                  store.set('run_at_startup', option.checked);
-                  setRunAtStartup (option.checked, store);
-                  // to fix cinnamon nemo desktop checked bug 
-                  //if (!isMac) {
-                    restartApp(option.checked);
-                  //} 
-
-              },
+              label: '🚀 ' + i18n.__('run_at_startup'),
+              submenu: [
+                {
+                  // set run at startup
+                  label: i18n.__('logging_sw'),
+                  type: 'checkbox',
+                  checked: store.get('run_at_startup'),
+                  enabled: (app.isPackaged)  ? true : false,
+                  click: (option) => {
+                      store.set('run_at_startup', option.checked);
+                      setRunAtStartup (option.checked, store);
+                      restartApp(option.checked);
+                  }
+                }
+              ],
             },
              // set logging to file
             {
-              label: i18n.__('logging'),
+              label: '📄  ' + i18n.__('logging'),
               submenu: [
                 {
                   label: i18n.__('logging_sw'),
@@ -1120,15 +1129,20 @@ if (!gotTheLock) {
               ]
             },
             {
-              label : i18n.__('about'),
-              // for linux compatibility
+              label : 'ℹ️  ' + i18n.__('about'),
               click: () => {
                 app.showAboutPanel();
               }
             },
             { type: 'separator' },
             {
-              label: i18n.__('exit'),
+              label: '↩️  ' + i18n.__('restart_app'),
+              click: () => {
+                restartApp();
+              }
+            },
+            {
+              label: '🚪  ' + i18n.__('exit'),
               click: () => {
                 if (isMac) {
                   exec('launchctl bootout gui/"$(id -u)"/com.electron.'+appNameLC);
@@ -1263,7 +1277,7 @@ if (!gotTheLock) {
                     
                     setTimeout( function() {
                       setInterval(function () {
-                        if (Math.round(desktopIdle.getIdleTime())<1) {
+                        if (idle_time<1) {
                           writeLog(`User activity, stop screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
                           stopScreensaver(displays, mainWindow[display.id], this)
                         }
@@ -1301,6 +1315,36 @@ if (!gotTheLock) {
                 restartApp();
               }, 5000);
             });
+
+            const deviceCache = new Map();
+            let number_of_hid_devices = 0;
+
+            const checkDevices = () => {
+              try {
+                const currentDevices = HID.devices();
+
+                if (number_of_hid_devices != currentDevices.length) {
+                  debounce = setTimeout(function() {
+                    writeLog("Some hid devices changed. Restart app..")
+                    restartApp();
+                  }, 5000);
+                }
+                number_of_hid_devices = currentDevices.length;
+
+                //writeLog(`🔍 Scanning: ${currentDevices.length} devices found`);
+
+
+
+              } catch (err) {
+                // 🚨 CRITICAL: Always catch HID errors (macOS permissions!)
+                writeLog(`❌ DEVICE MONITOR ERROR: ${err.message}`);
+              }
+            };
+
+            // Initialize immediately + poll
+            //checkDevices(); // Initial scan (catches devices already connected)
+            number_of_hid_devices = HID.devices().length;
+            setInterval(checkDevices, 1000);
 
             // independent fullscreen window on each available monitor
             displays.forEach((display) => {
@@ -1382,31 +1426,35 @@ if (!gotTheLock) {
                 website: "https://ribbons.drlight.fun/"
             });
 
-            // dont use desktop-idle in windows
-            //if (!isWindows) {
-              displays.forEach((display) => {
-                const { x, y, width, height } = display.bounds;
-                let activity_check_interval = 1;
-                let curWindow = [];
-                var isFullscreen = [];
+            displays.forEach((display) => {
+              const { x, y, width, height } = display.bounds;
+              let activity_check_interval = 1;
+              let curWindow = [];
+              var isFullscreen = [];
 
-
-                setInterval(function () {
-                    // dont run screensaver if system is suspended or screen is locked
-                    if (isLocked_suspend) {
-                      // force stop screensaver if system locked or suspunded during running screensaver
-                      if (running_screensaver[display.id]) {
-                        writeLog("Running screensaver detected. Stopping it.");
-                        stopScreensaver(displays, mainWindow[display.id], this);
-                      }
-                      return;
+              setInterval(function () {
+                  // dont run screensaver if system is suspended or screen is locked
+                  if (isLocked_suspend) {
+                    // force stop screensaver if system locked or suspunded during running screensaver
+                    if (running_screensaver[display.id]) {
+                      writeLog("Running screensaver detected. Stopping it.");
+                      stopScreensaver(displays, mainWindow[display.id], this);
                     }
-                    /*let time_left = store.get('idle_time')-Math.round(SystemIdleTime.getIdleTime());
+                    return;
+                  }
+
+                  // to allow some time before idle_time update - prevents wrong start screensaver right after fullscreen app
+                  setTimeout (()=>{
+                    idle_time = Math.round(desktopIdle.getIdleTime());
+                    /*let time_left = store.get('idle_time')-Math.round(desktopIdle.getIdleTime());
+                    
                     if (time_left >0) {
                       console.log('Time before screensaver run: ' + time_left + 's')
                     }*/
+
+                    //writeLog(idle_time + 's')
                   
-                    if (Math.round(desktopIdle.getIdleTime()) >= store.get('idle_time')) {
+                    if (idle_time > store.get('idle_time')) {
                       (async () => {
                         try {
                           if (!isLinux) {
@@ -1465,7 +1513,7 @@ if (!gotTheLock) {
 
                           }
 
-                          /*console.log("Display: "+display.label+" Active app is fullscreen: "+isFullscreen[display.id] + 
+                          /*writeLog("Display: "+display.label+" Active app is fullscreen: "+isFullscreen[display.id] + 
                             " Running screensaver: "+running_screensaver[display.id])*/
 
                           if ((!running_screensaver[display.id])&&(!isFullscreen[display.id] || (isDesktopWindow(curWindow[display.id])))) {
@@ -1482,7 +1530,7 @@ if (!gotTheLock) {
                                   running_screensaver[display.id] = true;
                                   
                                   setInterval(function () {
-                                    if (Math.round(desktopIdle.getIdleTime())<1) {
+                                    if (idle_time<1) {
                                       writeLog(`User activity, stop screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
                                       stopScreensaver(displays, mainWindow[display.id], this)
                                     }
@@ -1503,7 +1551,7 @@ if (!gotTheLock) {
                                 running_screensaver[display.id] = true;
 
                                 setInterval(function () {
-                                  if (Math.round(desktopIdle.getIdleTime())<1) {
+                                  if (idle_time<1) {
                                     writeLog(`User activity, stop screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
                                     stopScreensaver(displays, mainWindow[display.id], this)
                                   }
@@ -1511,22 +1559,13 @@ if (!gotTheLock) {
                             }
                         }
                       })();
+                    } else {
+                      //writeLog("Time for screensaver has not come yet...")
                     }
-                }, activity_check_interval*1000);
+                  }, 1000);
+              }, activity_check_interval*1000);
 
-              });
-            //}
-            // run fullscreen graphics immediately in windows
-            /*if (isWindows) {
-              displays.forEach((display) => {
-                if (!mainWindow[display.id].isVisible()) {
-                  //if (!config) {
-                    mainWindow[display.id].setFullScreen(true);
-                    mainWindow[display.id].show();
-                  //}
-                }
-              })
-            }*/
+            });
         });
 
     }

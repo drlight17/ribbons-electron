@@ -556,13 +556,22 @@ ipcRenderer.on('send-options', (event, got_options) => {
         if (options["datetime_front"]) {
             setFront();
         }
-        
+
         // set randomize position
         if (options["randomize_datetime_pos"]) {
-            //randomizePosition(options['display_bounds']);
-            setInterval(() => randomizePosition(options['display_bounds']), 1000);
+          const randomizeWithJitter = () => {
+            // Random delay between 1s-10s
+            const delay = 1000 + Math.random() * 10000;
+            
+            setTimeout(() => {
+              randomizePosition(options['display_bounds']);
+              randomizeWithJitter();
+            }, delay);
+          };
+
+          randomizeWithJitter();
         } else {
-            showDateTime();
+          showDateTime();
         }
     }
 });
