@@ -62,6 +62,8 @@ let displays = null;
 let store = null;
 let isLocked_suspend = false;
 let idle_time = 0;
+let curWindow = {};
+var isFullscreen = {};
 
 // Stay open only if the screensaver should be shown (/s param)
 // We don't implement /c (configure) and /p (preview) for now... 
@@ -98,8 +100,13 @@ if (!isMac) {
 // **************** functions block *********************************
 
 // stop screensaver func
-function stopScreensaver(displays, win, checkid) {
-  displays.forEach((display) => {
+function stopScreensaver(display, win, checkid) {
+    /*writeLog(`isLocked_suspend status for display ${display.label}(${display.id}): ${isLocked_suspend}`)
+    writeLog('running_screensaver status: ')
+    writeLog(running_screensaver, true)
+    writeLog('isFullscreen status: ')
+    writeLog(isFullscreen, true)*/
+    
     if (mainWindow[display.id].isVisible()) {
       win.setFullScreen(false);
       //win.setFullScreenable(true);
@@ -107,8 +114,39 @@ function stopScreensaver(displays, win, checkid) {
       win.hide();
       running_screensaver = {};
     }
-  });
   clearInterval(checkid);
+}
+
+// start screensaver func
+function startScreensaver(mainWindow, display) {
+    /*writeLog(`isLocked_suspend status for display ${display.label}(${display.id}): ${isLocked_suspend}`)
+    writeLog('running_screensaver status: ')
+    writeLog(running_screensaver, true)
+    writeLog('isFullscreen status: ')
+    writeLog(isFullscreen, true)*/
+  if (!mainWindow[display.id].isVisible()) {
+    writeLog(`Start screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
+    //run_screensaver();
+    mainWindow[display.id].setFullScreen(true);
+    //mainWindow[display.id].setFullScreenable(false);
+    mainWindow[display.id].webContents.send('send-options',optionsArray[display.id]);
+    if (isMac) {
+      hideCursor(mainWindow[display.id]);
+    }
+
+    mainWindow[display.id].showInactive();
+    running_screensaver[display.id] = true;
+    // delay activity tracking, otherwise we'll close immediately
+    
+    setTimeout( function() {
+      setInterval(function () {
+        if (idle_time<1) {
+          writeLog(`User activity, stop screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
+          stopScreensaver(display, mainWindow[display.id], this)
+        }
+      }, 500);
+    }, 1500); // 1,5 seconds delay to prevent acidential mouse move screensaver close
+  }
 }
 
 // to hide system cursor on macos using robotjs
@@ -167,6 +205,8 @@ async function listenForScreenLockEvents() {
     } else {
       isLocked_suspend = false;
       writeLog('The screen is unlocked');
+      writeLog('Restart app to prevents issues.')
+      restartApp();
     }
   });
 }
@@ -184,6 +224,8 @@ async function listenForSuspendEvents() {
     } else {
       isLocked_suspend = false;
      writeLog('The system is released');
+     writeLog('Restart app to prevents issues.')
+     restartApp();
     }
   });
 }
@@ -265,6 +307,7 @@ async function getLinuxActiveWindow() {
   try {
     // 1. Get the active window ID
     const { stdout: activeWinOut } = await execAsync('xprop -root _NET_ACTIVE_WINDOW');
+    //writeLog(activeWinOut, true)
 
     const match = activeWinOut.match(/_NET_ACTIVE_WINDOW\(WINDOW\):\s+window id #\s+(0x[a-fA-F0-9]+)/);
     if (!match) {
@@ -681,27 +724,7 @@ if (!gotTheLock) {
               label: '⿻  ' + i18n.__('show_now'),
               click: () => {
                 displays.forEach((display) => {
-                  if (!mainWindow[display.id].isVisible()) {
-                    writeLog(`Start screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
-                    //run_screensaver();
-                    mainWindow[display.id].setFullScreen(true);
-                    //mainWindow[display.id].setFullScreenable(false);
-                    mainWindow[display.id].webContents.send('send-options',optionsArray[display.id]);
-                    if (isMac) {
-                      hideCursor(mainWindow[display.id]);
-                    }
-                    mainWindow[display.id].show();
-                    // delay activity tracking, otherwise we'll close immediately
-                    
-                    setTimeout( function() {
-                      setInterval(function () {
-                        if (idle_time<1) {
-                          writeLog(`User activity, stop screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
-                          stopScreensaver(displays, mainWindow[display.id], this)
-                        }
-                      }, 500);
-                    }, 1000);
-                  }
+                  startScreensaver(mainWindow, display);
                 })
               },
             },
@@ -1184,6 +1207,8 @@ if (!gotTheLock) {
             powerMonitor.on('unlock-screen', () => {
               isLocked_suspend = false;
               writeLog('The screen is unlocked');
+              writeLog('Restart app to prevents issues.')
+              restartApp();
               // Add your custom logic here
             });
             powerMonitor.on('suspend', () => {
@@ -1194,6 +1219,8 @@ if (!gotTheLock) {
             powerMonitor.on('resume', () => {
               isLocked_suspend = false;
               writeLog('The system is released');
+              writeLog('Restart app to prevents issues.')
+              restartApp();
               // Add your custom logic here
             });
           } else {
@@ -1263,27 +1290,7 @@ if (!gotTheLock) {
                   mainWindow.show()
                 }*/
                 displays.forEach((display) => {
-                  if (!mainWindow[display.id].isVisible()) { 
-                    writeLog(`Start screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
-                    //run_screensaver();
-                    mainWindow[display.id].setFullScreen(true);
-                    //mainWindow[display.id].setFullScreenable(false);
-                    mainWindow[display.id].webContents.send('send-options',optionsArray[display.id]);
-                    if (isMac) {
-                      hideCursor(mainWindow[display.id]);
-                    }
-                    mainWindow[display.id].show();
-                    // delay activity tracking, otherwise we'll close immediately
-                    
-                    setTimeout( function() {
-                      setInterval(function () {
-                        if (idle_time<1) {
-                          writeLog(`User activity, stop screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
-                          stopScreensaver(displays, mainWindow[display.id], this)
-                        }
-                      }, 500);
-                    }, 1000);
-                  }
+                  startScreensaver(mainWindow, display);
                 })
 
               })
@@ -1298,22 +1305,25 @@ if (!gotTheLock) {
             clearTimeout(debounce);
           
             screen.on('display-removed', (event, display) => {
+              let delay = 2000 + Math.random() * 5000;
               debounce = setTimeout(function() {
                 writeLog("Display "+display.label+" with id "+display.id+" was removed. Restart app...")
                 restartApp();
-              }, 5000);
+              }, delay);
             });
             screen.on('display-added', (event, display) => {
+              let delay = 2000 + Math.random() * 5000;
               debounce = setTimeout(function() {
                 writeLog("Display "+display.label+" with id "+display.id+" was added. Restart app...")
                 restartApp();
-              }, 5000);
+              }, delay);
             });
             screen.on('display-metrics-changed', (event, display) => {
+              let delay = 2000 + Math.random() * 5000;
               debounce = setTimeout(function() {
                 writeLog("Display "+display.label+" with id "+display.id+" was changed (resolution or other properties). Restart app...")
                 restartApp();
-              }, 5000);
+              }, delay);
             });
 
             const deviceCache = new Map();
@@ -1322,12 +1332,13 @@ if (!gotTheLock) {
             const checkDevices = () => {
               try {
                 const currentDevices = HID.devices();
+                let delay = 2000 + Math.random() * 5000;
 
                 if (number_of_hid_devices != currentDevices.length) {
                   debounce = setTimeout(function() {
                     writeLog("Some hid devices changed. Restart app..")
                     restartApp();
-                  }, 5000);
+                  }, delay);
                 }
                 number_of_hid_devices = currentDevices.length;
 
@@ -1402,43 +1413,15 @@ if (!gotTheLock) {
 
                 //mainWindow[display.id].webContents.toggleDevTools();
 
-                // Prevent window from closing and quitting app
-                // Instead make close simply hide main window
-                // Clicking on tray icon will bring back main window
-                 /*mainWindow[display.id].on('close', event => {
-                    event.preventDefault();
-                    mainWindow[display.id].hide();
-                    mainWindow[display.id].setFullScreen(false);
-                })*/
-             })
-
-            //customize about
-            //console.log(iconPath)
-            app.setAboutPanelOptions({
-                //applicationName: app.getName(),
-                applicationName: i18n.__('app_name'),
-                applicationVersion: "v."+app.getVersion(),
-                authors: ["<a href='https://github.com/drlight17'>drlight17</a>"],
-                version: app.getVersion(),
-                copyright: "Lisense AGPLv3 ©2026",
-                iconPath: iconPath,
-                //iconPath: path.resolve(getResourceDirectory(), "icon.png"),
-                website: "https://ribbons.drlight.fun/"
-            });
-
-            displays.forEach((display) => {
-              const { x, y, width, height } = display.bounds;
-              let activity_check_interval = 1;
-              let curWindow = [];
-              var isFullscreen = [];
-
-              setInterval(function () {
+                setInterval(function () {
                   // dont run screensaver if system is suspended or screen is locked
                   if (isLocked_suspend) {
                     // force stop screensaver if system locked or suspunded during running screensaver
                     if (running_screensaver[display.id]) {
-                      writeLog("Running screensaver detected. Stopping it.");
-                      stopScreensaver(displays, mainWindow[display.id], this);
+                      writeLog("Running screensaver detected. Stopping it at all displays.");
+                      displays.forEach((display) => {
+                        stopScreensaver(display, mainWindow[display.id], this);
+                      });
                     }
                     return;
                   }
@@ -1516,55 +1499,33 @@ if (!gotTheLock) {
                           /*writeLog("Display: "+display.label+" Active app is fullscreen: "+isFullscreen[display.id] + 
                             " Running screensaver: "+running_screensaver[display.id])*/
 
-                          if ((!running_screensaver[display.id])&&(!isFullscreen[display.id] || (isDesktopWindow(curWindow[display.id])))) {
+                          if (/*(!running_screensaver[display.id])&&*/(!isFullscreen[display.id] || (isDesktopWindow(curWindow[display.id])))) {
                             //console.log('Current active window is not fullscreen or desktop. Running screensaver.');
-                              if (!mainWindow[display.id].isVisible()) {
-                                  writeLog(`Start screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
-                                  mainWindow[display.id].setFullScreen(true);
-                                  //mainWindow[display.id].setFullScreenable(false);
-                                  mainWindow[display.id].webContents.send('send-options',optionsArray[display.id]);
-                                  if (isMac) {
-                                    hideCursor(mainWindow[display.id]);
-                                  }
-                                  mainWindow[display.id].showInactive();
-                                  running_screensaver[display.id] = true;
-                                  
-                                  setInterval(function () {
-                                    if (idle_time<1) {
-                                      writeLog(`User activity, stop screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
-                                      stopScreensaver(displays, mainWindow[display.id], this)
-                                    }
-                                  }, 500)
-                              }
+                            startScreensaver(mainWindow, display);
                           }
                         } else {
                           //console.log('There is no active windows but it is Mac. Running screensaver.');
-                            if (!mainWindow[display.id].isVisible()) {
-                                writeLog(`Start screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
-                                mainWindow[display.id].setFullScreen(true);
-                                //mainWindow[display.id].setFullScreenable(false);
-                                mainWindow[display.id].webContents.send('send-options',optionsArray[display.id]);
-                                if (isMac) {
-                                  hideCursor(mainWindow[display.id]);
-                                }
-                                mainWindow[display.id].showInactive();
-                                running_screensaver[display.id] = true;
-
-                                setInterval(function () {
-                                  if (idle_time<1) {
-                                    writeLog(`User activity, stop screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
-                                    stopScreensaver(displays, mainWindow[display.id], this)
-                                  }
-                                }, 500)
-                            }
+                          startScreensaver(mainWindow, display);
                         }
                       })();
-                    } else {
-                      //writeLog("Time for screensaver has not come yet...")
                     }
-                  }, 1000);
-              }, activity_check_interval*1000);
+                }, 1000);
+              }, 1000);
 
+            })
+
+            //customize about
+            //console.log(iconPath)
+            app.setAboutPanelOptions({
+                //applicationName: app.getName(),
+                applicationName: i18n.__('app_name'),
+                applicationVersion: "v."+app.getVersion(),
+                authors: ["<a href='https://github.com/drlight17'>drlight17</a>"],
+                version: app.getVersion(),
+                copyright: "Lisense AGPLv3 ©2026",
+                iconPath: iconPath,
+                //iconPath: path.resolve(getResourceDirectory(), "icon.png"),
+                website: "https://ribbons.drlight.fun/"
             });
         });
 

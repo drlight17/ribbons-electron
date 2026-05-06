@@ -20,24 +20,51 @@ export function setFront(){
 }
 
 function toggleAnimation(element) {
-  element.classList.remove('appear-disappear-1', 'appear-disappear-2');
-  
-  void element.offsetWidth; // Critical browser reflow trigger
-  
-  const nextClass = Math.random() < 0.5 
+    element.classList.remove('appear-disappear-1', 'appear-disappear-2');
+
+    void element.offsetWidth; // Critical browser reflow trigger
+
+    const nextClass = Math.random() < 0.5 
     ? 'appear-disappear-1' 
     : 'appear-disappear-2';
-  
-  element.classList.add(nextClass);
+
+    element.classList.add(nextClass);
+    // set randomize datetime animation duration
+
+    // Randomize duration for EACH element (10-30s)
+    let dur_base = Math.floor(Math.random() * 21) + 10;
+
+    let dur = `${dur_base}s`
+
+    element.style.setProperty('--dur', dur);
+
+    if (nextClass == 'appear-disappear-1') {
+        //console.log(`Zooming in animation. Remove front now. Waiting ${dur_base * 0.5}s`)
+        element.classList.remove('front'); // Immediate removal (0%)
+        setTimeout(() => {
+            //console.log(`Zooming in animation. Add front`)
+            element.classList.add('front');
+        }, dur_base * 0.5 * 1000);
+    } else {
+        //console.log(`Zooming out animation. Add front now. Waiting ${dur_base * 0.5}s`)
+        element.classList.add('front'); // Immediate addition (0%)
+        setTimeout(() => {
+            //console.log(`Zooming out animation. Remove front`)
+            element.classList.remove('front');
+        }, dur_base * 0.5 * 1000);
+    }
 }
 
 
 function getActiveAnimations(element) {
+
     const computedStyle = window.getComputedStyle(element);
     const animations = [];
     
     // Get all active animations
+    
     for (let i = 0; i < element.getAnimations().length; i++) {
+
         const anim = element.getAnimations()[i];
         if (anim.playState === 'running') {
             animations.push(anim);
@@ -58,67 +85,50 @@ export function randomizePosition(bounds) {
         return; // Skip if animation is active
     }
 
-    // set randomize datetime animation duration
+    let { left, top } = getRandomPosition(bounds, 10, 500);
 
-    // Randomize duration for EACH element (30-60s)
-    document.querySelectorAll('.appear-disappear-1').forEach(el => {
-        el.style.setProperty('--dur', `${Math.random() * 30 + 30}s`);
-    });
-    document.querySelectorAll('.appear-disappear-2').forEach(el => {
-        el.style.setProperty('--dur', `${Math.random() * 30 + 30}s`);
-    });
 
-    let { left, top } = getRandomPosition(bounds, 20, 400);
-
-    if (Math.random() > 0.5) {
+    /*if (Math.random() > 0.5) {
         element.classList.toggle('front');
-    }
+    }*/
+
     element.style.top = top;
     element.style.left = left;
     toggleAnimation(element);
 
 }
 
-
-
 let lastPosition = null;
 
-function getRandomPosition(bounds, paddingPercentage = 10, minDistance = 200) {
-    const paddingX = bounds.width * (paddingPercentage / 100);
-    const paddingY = bounds.height * (paddingPercentage / 100);
+function getRandomPosition(bounds) {
+  const padding = 0.15; // % padding
+  const px_padding = 300;
+  const w = bounds.width;
+  const h = bounds.height;
+  const minDistance = 0.5 * Math.min(w, h);
+  const maxAttempts = 50;
+  let distance;
+  
+  let left, top;
+  
+  do {
+    left = Math.round(Math.random() * (w * (1 - 2 * padding))/* + w * padding - px_padding*/);
+    top = Math.round(Math.random() * (h * (1 - 2 * padding))/* + h * padding - px_padding*/);
     
-    const maxWidth = Math.max(0, bounds.width - paddingX * 2);
-    const maxHeight = Math.max(0, bounds.height - paddingY * 2);
+    if (lastPosition) {
+      const dx = left - lastPosition.left ;
+      const dy = top - lastPosition.top;
+      distance = Math.sqrt(dx * dx + dy * dy);
+      
+    } else {
+      break; // first run - skip
+    }
     
-    let left, top;
-    let attempts = 0;
-    const maxAttempts = 50; // Prevent infinite loops
-    
-    do {
-        left = Math.floor(Math.random() * maxWidth) + paddingX;
-        top = Math.floor(Math.random() * maxHeight) + paddingY;
-        
-        // Check distance from last position if it exists
-        if (lastPosition && attempts < maxAttempts) {
-            const distance = Math.sqrt(
-                Math.pow(left - lastPosition.left, 2) + 
-                Math.pow(top - lastPosition.top, 2)
-            );
-            
-            if (distance >= minDistance) {
-                break; // Acceptable distance
-            }
-        } else if (!lastPosition) {
-            break; // First call, always accept
-        }
-        
-        attempts++;
-    } while (attempts < maxAttempts);
-    
-    // Update last position
-    lastPosition = { left, top };
+  } while ((distance < minDistance) && (left < w * padding) && (top < h * padding));
+  
+  lastPosition = { left, top };
 
-    console.log(`left: ${left}, top: ${top}`)
+  console.log(`left: ${left}, top: ${top}`)
 
-    return { left, top };
+  return { left, top };
 }
