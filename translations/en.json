@@ -40,6 +40,7 @@
     "datetime_front": "Show on top",
     "exit":"Exit",
     "show_datetime": "Show date and time",
+    "stretched_mode": "Stretch over all displays",
     "app_name": "\"Ribbons\" screensaver",
     "horizontal_speed": "Draw speed",
     "error1": "Screensaver is already run! Check tray icon!",

@@ -469,13 +469,15 @@
 // the screensaver glue: making sure we quit when needed
 const { ipcRenderer } = require('electron')
 
-import { updateDateTime, showDateTime, setFront, randomizePosition } from './datetime.js';
+import { updateDateTime, showDateTime, setFront, randomizePosition, pauseDateTimeAnimation, resumeDateTimeAnimation, showDRL } from './datetime.js';
 
 let Ribbons_instance = null;
 var colorCycleSpeed = null;
 var colorSaturation = null;
 var options = [];
 var AnimationId = null;
+let paused = false;
+let delay;
 
 function start_Ribbons(colorSaturation, colorCycleSpeed, options) {
     // ribbon appearance section
@@ -506,8 +508,22 @@ ipcRenderer.on('send-stop', (event, flag) => {
     //Ribbons_instance.destroy();
 });
 
+ipcRenderer.on('send-pause', (event) => {
+    cancelAnimationFrame(AnimationId);
+    pauseDateTimeAnimation()
+    paused = true;
+    console.log('Pause animation')
+});
 
-ipcRenderer.on('send-options', (event, got_options) => {
+ipcRenderer.on('send-options', (event, got_options, pause) => {
+
+    if (pause) {
+        resumeDateTimeAnimation();
+        console.log('Animation were paused. Resume.')
+        paused = false;
+    }
+
+
     options = got_options;
     //console.log(options["horizontalSpeed"])
     document.body.classList.add(options["theme"]);
@@ -561,11 +577,13 @@ ipcRenderer.on('send-options', (event, got_options) => {
         if (options["randomize_datetime_pos"]) {
           const randomizeWithJitter = () => {
             // Random delay between 1s-10s
-            const delay = 1000 + Math.random() * 10000;
+            delay = 1000 + Math.random() * 10000;
             
             setTimeout(() => {
-              randomizePosition(options['display_bounds']);
-              randomizeWithJitter();
+                if (!paused) {
+                    randomizePosition(options['display_bounds']);
+                    randomizeWithJitter(); 
+                }
             }, delay);
           };
 
@@ -574,6 +592,17 @@ ipcRenderer.on('send-options', (event, got_options) => {
           showDateTime();
         }
     }
+
+    const randomizeDRLWithJitter = () => {
+        // Random delay between 1 - 5 mins
+        delay = Math.floor(Math.random() * 300000) + 60000;
+        //console.log(`DRL logo will appear after ${delay/1000}s`)
+        setTimeout(() => {
+            showDRL();
+            randomizeDRLWithJitter(); 
+        }, delay);
+    }
+    randomizeDRLWithJitter();
 });
 // force hide mouse cursor
 document.body.style.cursor = "none";

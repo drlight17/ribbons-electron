@@ -1,4 +1,4 @@
-import { app, powerMonitor, clipboard, BrowserWindow, Menu, MenuItem, Tray, nativeImage, ipcMain, screen, nativeTheme, dialog, shell } from 'electron';
+import { app, powerMonitor, clipboard, BrowserWindow, Menu, MenuItem, Tray, nativeImage, ipcMain, screen, nativeTheme, dialog, shell, globalShortcut } from 'electron';
 import * as path from 'path';
 import { fileURLToPath } from "url";
 import { exec } from 'child_process';
@@ -62,6 +62,7 @@ let displays = null;
 let store = null;
 let isLocked_suspend = false;
 let idle_time = 0;
+let paused = {};
 let curWindow = {};
 var isFullscreen = {};
 
@@ -86,15 +87,16 @@ var isFullscreen = {};
   }
 }*/
 
-if (!isMac) {
+if (isLinux) {
   var iconPath = path.resolve(getResourceDirectory(), "icon.png");
   store = new Store();
-} else {
+} else if (isMac){
   getResourceDirectory();
   store = new Store();
-  var iconPath = path.join(__dirname,store.get('app_icon_name')||'iconTemplate.png');
-
-
+  var iconPath = path.join(__dirname, store.get('app_icon_name') || 'iconTemplate.png');
+} else if (isWindows) {
+  var iconPath = path.resolve(getResourceDirectory(), "icon.ico");
+  store = new Store();
 }
 
 // **************** functions block *********************************
@@ -108,7 +110,9 @@ function stopScreensaver(display, win, checkid) {
     writeLog(isFullscreen, true)*/
     
     if (mainWindow[display.id].isVisible()) {
-      win.setFullScreen(false);
+      if (display.id != "stretched") {
+        win.setFullScreen(false);
+      }
       //win.setFullScreenable(true);
       win.webContents.send('send-stop',true);
       win.hide();
@@ -117,19 +121,36 @@ function stopScreensaver(display, win, checkid) {
   clearInterval(checkid);
 }
 
+// toggle play/pause screensaver
+function toggleScreensaver(display, win) {
+  if (running_screensaver[display.id]) {
+    if (!paused[display.id]) {
+      win.webContents.send('send-pause');
+      paused[display.id] = true;
+    } else {
+      win.webContents.send('send-stop',true);
+      startScreensaver(mainWindow, display, true);
+      paused[display.id] = false;
+    }
+  }
+}
+
 // start screensaver func
-function startScreensaver(mainWindow, display) {
+function startScreensaver(mainWindow, display, start) {
     /*writeLog(`isLocked_suspend status for display ${display.label}(${display.id}): ${isLocked_suspend}`)
     writeLog('running_screensaver status: ')
     writeLog(running_screensaver, true)
     writeLog('isFullscreen status: ')
     writeLog(isFullscreen, true)*/
-  if (!mainWindow[display.id].isVisible()) {
+  if (!mainWindow[display.id].isVisible() || (start)) {
     writeLog(`Start screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
     //run_screensaver();
-    mainWindow[display.id].setFullScreen(true);
+    if (display.id != "stretched") {
+      mainWindow[display.id].setFullScreen(true);
+
+    }
     //mainWindow[display.id].setFullScreenable(false);
-    mainWindow[display.id].webContents.send('send-options',optionsArray[display.id]);
+    mainWindow[display.id].webContents.send('send-options',optionsArray[display.id], paused[display.id]);
     if (isMac) {
       hideCursor(mainWindow[display.id]);
     }
@@ -698,11 +719,23 @@ if (!gotTheLock) {
           store.set('exec_path',app.getPath('exe'));
         }
 
+        // check if stretched_mode is configured and set default false value if not
+        if (store.get('stretched_mode') === undefined) {
+          store.set('stretched_mode', false);
+        }
+
         // check if run_at_startup is configured and set default false value if not
         if (!store.get('run_at_startup')) {
           setRunAtStartup (false, store);
         } else {
           setRunAtStartup (true, store);
+        }
+
+        // if stretched_mode is enabled - force turn on randomize_datetime_pos
+        if (store.get('show_datetime') && !store.get('randomize_datetime_pos')) {
+          if (store.get('stretched_mode')) {
+            store.set('randomize_datetime_pos', true)
+          }
         }
         
         let icon = nativeImage.createFromPath(iconPath); // template with center transparency
@@ -732,6 +765,21 @@ if (!gotTheLock) {
             {
               label: '⚙️ ' + i18n.__('visuals'),
               submenu: [
+                {
+                  label: '↔️ ' + i18n.__('stretched_mode'),
+                  submenu: [
+                    {
+                      label: i18n.__('logging_sw'),
+                      type: 'checkbox',
+                      checked: store.get('stretched_mode'),
+                      //enabled: store.get('randomize_datetime_pos') ? true : false,
+                      click: (option) => {
+                          store.set('stretched_mode', option.checked);
+                          restartApp();
+                      }
+                    }
+                  ],
+                },
                 {
                   label: '🌓 ' + i18n.__('theme'),
                   submenu: [
@@ -955,7 +1003,7 @@ if (!gotTheLock) {
                   ]
                 },
                 {
-                  label: '↔ ' + i18n.__('horizontal_speed'),
+                  label: '⏩ ' + i18n.__('horizontal_speed'),
                   submenu: [
                     {
                       label: i18n.__('slow'),
@@ -1357,6 +1405,47 @@ if (!gotTheLock) {
             number_of_hid_devices = HID.devices().length;
             setInterval(checkDevices, 1000);
 
+
+            // register ctrl+p shortcut to play/pause animation
+            globalShortcut.register('Control+P', () => {
+              displays.forEach((display) => {
+                toggleScreensaver(display, mainWindow[display.id]);
+              });
+            })
+
+            // streched window over each available monitor
+            if (store.get('stretched_mode')) {
+              //writeLog('Streched screensaver mode');
+              let minX = 0, minY = 0, maxX = 0, maxY = 0
+
+              displays.forEach((display) => {
+                const { x, y, width, height } = display.bounds
+                
+                if (x < minX) minX = x
+                if (y < minY) minY = y
+                if ((x + width) > maxX) maxX = x + width
+                if ((y + height) > maxY) maxY = y + height
+              })
+
+              const fullVirtualBounds = {
+                x: minX,
+                y: minY,
+                width: maxX - minX,
+                height: maxY - minY
+              }
+
+              
+
+              displays = [
+                {
+                  id: 'stretched',
+                  bounds: fullVirtualBounds
+                }
+              ]
+
+              //writeLog(displays, true)
+
+            }
             // independent fullscreen window on each available monitor
             displays.forEach((display) => {
                 writeLog(`Display found: ${display.label||'NONAME'} (id ${display.id})`);
@@ -1390,6 +1479,9 @@ if (!gotTheLock) {
 
                 // to override everything
                 mainWindow[display.id].setAlwaysOnTop(true, 'screen-saver', 1);
+
+                // Windows DWM sometimes resets bounds on first render. Re-apply after ready-to-show.
+                mainWindow[display.id].setBounds(display.bounds);
                 //mainWindow[display.id].setResizable(false);
 
                 // and load the index.html of the app.

@@ -15,8 +15,28 @@ export function showDateTime() {
     document.getElementsByClassName('datetime-container')[0].classList.remove('hidden');
 }
 
+export function pauseDateTimeAnimation() {
+    //document.getElementsByClassName('datetime-container')[0].classList.remove('hidden');
+    document.getElementsByClassName('datetime-container')[0].classList.add('paused');
+}
+
+export function resumeDateTimeAnimation() {
+    //document.getElementsByClassName('datetime-container')[0].classList.remove('hidden');
+    document.getElementsByClassName('datetime-container')[0].classList.remove('paused');
+}
+
 export function setFront(){
     document.getElementsByClassName('datetime-container')[0].classList.add('front');
+}
+
+export function showDRL(){
+    let drl_element = document.getElementsByClassName('drl-container')[0];
+    drl_element.classList.remove('hidden');
+    // Randomize duration (10-30s)
+    let duration = Math.floor(Math.random() * 21000) + 10000;
+    setTimeout(() => {
+        drl_element.classList.add('hidden');
+    }, duration);
 }
 
 function toggleAnimation(element) {
@@ -128,7 +148,7 @@ function getRandomPosition(bounds) {
   
   lastPosition = { left, top };
 
-  console.log(`left: ${left}, top: ${top}`)
+  //console.log(`left: ${left}, top: ${top}`)
 
   return { left, top };
 }
