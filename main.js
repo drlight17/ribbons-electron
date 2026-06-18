@@ -4,9 +4,9 @@ import { fileURLToPath } from "url";
 import { exec } from 'child_process';
 import { execFile } from 'child_process';
 import { execSync } from 'child_process';
-import { spawn } from 'child_process';
+//import { spawn } from 'child_process';
 import * as DBus from 'dbus-next';
-import console from 'console';
+//import console from 'console';
 
 app.console = new console.Console(process.stdout, process.stderr);
 
@@ -32,6 +32,9 @@ import { desktopIdle } from 'node-desktop-idle-v2';
 
 //import {activeWindow} from 'get-windows';
 import { activeWindow } from "@deepfocus/get-windows";
+
+const { initMain: initSystemAudioLoopback } = require('electron-audio-loopback');
+
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 
 const appNameLC = packageJson.name;
@@ -62,9 +65,11 @@ let displays = null;
 let store = null;
 let isLocked_suspend = false;
 let idle_time = 0;
+let sound_detected = false;
 let paused = {};
 let curWindow = {};
 var isFullscreen = {};
+let contextMenu;
 
 // Stay open only if the screensaver should be shown (/s param)
 // We don't implement /c (configure) and /p (preview) for now... 
@@ -103,21 +108,15 @@ if (isLinux) {
 
 // stop screensaver func
 function stopScreensaver(display, win, checkid) {
-    /*writeLog(`isLocked_suspend status for display ${display.label}(${display.id}): ${isLocked_suspend}`)
-    writeLog('running_screensaver status: ')
-    writeLog(running_screensaver, true)
-    writeLog('isFullscreen status: ')
-    writeLog(isFullscreen, true)*/
     
-    if (mainWindow[display.id].isVisible()) {
-      if (display.id != "stretched") {
-        win.setFullScreen(false);
-      }
-      //win.setFullScreenable(true);
-      win.webContents.send('send-stop',true);
-      win.hide();
-      running_screensaver = {};
+  if (mainWindow[display.id].isVisible()) {
+    if (display.id != "stretched") {
+      win.setFullScreen(false);
     }
+    win.webContents.send('send-stop',true);
+    win.hide();
+    running_screensaver = {};
+  }
   clearInterval(checkid);
 }
 
@@ -174,6 +173,201 @@ function startScreensaver(mainWindow, display, start) {
 function hideCursor (mainWin) {
     const screenSize = robot.getScreenSize();
     robot.moveMouse(screenSize.width - 1 , screenSize.height - 1);
+}
+
+function processDisplays(appIconMenuTemplate) {
+
+  const displays = screen.getAllDisplays();
+
+  if (store.get('stretched_mode')) {
+    store.set('selected_displays', 'all');
+  }
+
+  if (displays.length <= 1) {
+
+    store.delete('selected_displays');
+
+    return displays;
+  }
+
+  const saved_display_submenu = [];
+
+  let selectedDisplays = store.get('selected_displays');
+
+  const existingDisplayIds = displays.map(display =>
+    String(display.id)
+  );
+
+  let selectedDisplayIds = [];
+
+  if (
+    selectedDisplays &&
+    selectedDisplays !== 'all' &&
+    typeof selectedDisplays === 'object' &&
+    Array.isArray(selectedDisplays.displays)
+  ) {
+    selectedDisplayIds = selectedDisplays.displays
+      .map(id => String(id))
+      .filter(id => existingDisplayIds.includes(id));
+
+    if (
+      selectedDisplayIds.length !== selectedDisplays.displays.length
+    ) {
+      if (selectedDisplayIds.length === 0) {
+        store.delete('selected_displays');
+        selectedDisplays = undefined;
+      } else {
+        store.set('selected_displays', {
+          displays: selectedDisplayIds
+        });
+
+        selectedDisplays = {
+          displays: selectedDisplayIds
+        };
+      }
+    }
+  }
+
+  const isCustomMode =
+    selectedDisplays &&
+    selectedDisplays !== 'all' &&
+    typeof selectedDisplays === 'object' &&
+    Array.isArray(selectedDisplays.displays);
+
+  saved_display_submenu.push({
+    label: i18n.__('use_all_displays'),
+    type: 'radio',
+    id: 'all',
+    checked: !isCustomMode,
+    click: () => {
+
+      if (store.get('stretched_mode')) {
+        store.set('selected_displays', 'all');
+      } else {
+        store.delete('selected_displays');
+      }
+
+      restartApp();
+    }
+  });
+
+  saved_display_submenu.push({
+    label: i18n.__('use_selected_displays'),
+    type: 'radio',
+    id: 'custom',
+    //enabled: ,
+    checked: isCustomMode,
+    click: () => {
+
+      if (!isCustomMode) {
+
+        const firstDisplay = displays[0];
+
+        if (firstDisplay) {
+          store.set('selected_displays', {
+            displays: [String(firstDisplay.id)]
+          });
+        }
+      }
+
+      restartApp();
+    }
+  });
+
+  saved_display_submenu.push({
+    type: 'separator'
+  });
+
+  displays.forEach((display) => {
+
+    const displayId = String(display.id);
+
+    saved_display_submenu.push({
+      label: display.label || `Display ${displayId}`,
+      id: displayId,
+      type: 'checkbox',
+
+      enabled: isCustomMode,
+
+      checked:
+        isCustomMode &&
+        selectedDisplayIds.includes(displayId),
+
+      click: (menuItem) => {
+
+        let current = store.get('selected_displays');
+
+        let ids = [];
+
+        if (
+          current &&
+          typeof current === 'object' &&
+          Array.isArray(current.displays)
+        ) {
+          ids = current.displays.map(id => String(id));
+        }
+
+        if (menuItem.checked) {
+
+          if (!ids.includes(displayId)) {
+            ids.push(displayId);
+          }
+
+        } else {
+
+          ids = ids.filter(id => id !== displayId);
+
+        }
+
+        if (ids.length === 0) {
+
+          if (store.get('stretched_mode')) {
+            store.set('selected_displays', 'all');
+          } else {
+            store.delete('selected_displays');
+          }
+
+        } else {
+
+          store.set('selected_displays', {
+            displays: ids
+          });
+
+        }
+
+        restartApp();
+      }
+    });
+
+  });
+
+  appIconMenuTemplate.splice(2, 0, {
+    label: '📺 ' + i18n.__('selected_displays'),
+    visible: (!store.get('stretched_mode')),
+    enabled: true,
+    submenu: saved_display_submenu
+  });
+
+  contextMenu = Menu.buildFromTemplate(appIconMenuTemplate);
+  appIcon.setContextMenu(contextMenu);
+
+  const currentSelection = store.get('selected_displays');
+
+  if (
+    currentSelection === 'all' ||
+    !currentSelection ||
+    !Array.isArray(currentSelection.displays)
+  ) {
+    return displays;
+  }
+
+  const selectedIds = currentSelection.displays.map(id =>
+    String(id)
+  );
+
+  return displays.filter(display =>
+    selectedIds.includes(String(display.id))
+  );
 }
 
 async function restartApp(removed) {
@@ -603,7 +797,7 @@ function getResourceDirectory () {
       }
     }
 
-async function openLog(filePath) {
+async function openFile(filePath) {
 
   try {
     // Check if file exists
@@ -637,6 +831,12 @@ async function openLog(filePath) {
 
 // **************** functions block end *********************************
 
+import i18n from './translations/i18n.js';
+/*dialog.showErrorBox(
+    i18n.__('error'),
+    i18n.__('error1')
+);*/
+//const i18n = new I18n();
 
 const gotTheLock = app.requestSingleInstanceLock();
 
@@ -658,13 +858,8 @@ if (!gotTheLock) {
 
         dialog.showErrorBox(i18n.__('error'), i18n.__('error1'));
       }
-      //exec('launchctl stop com.electron.'+appNameLC+'&& sleep 5 && launchctl start com.electron.'+appNameLC);
-      //if (mainWindow) {
-      //  if (win.isMinimized()) win.restore();
-        //mainWindow.show();
-        //mainWindow.focus();
-      //}
     })
+
     try {
 
         // temporary turn off console.log errors in case of app.exit(0) in AppImage
@@ -675,13 +870,16 @@ if (!gotTheLock) {
           }
         });
 
-        var i18n = new(require('./translations/i18n.cjs'));
-
         var lang_files = i18n.___("get_locales");
 
         // check if theme is configured and set default auto value if not
         if (!store.get('theme')) {
           store.set('theme', 'auto');
+        }
+
+        // check if selected_displays is configured and set default all value if not
+        if (!store.get('selected_displays')) {
+          store.set('selected_displays', 'all');
         }
 
         // check if hw_acc is configured and set default true value if not
@@ -723,6 +921,7 @@ if (!gotTheLock) {
         if (store.get('stretched_mode') === undefined) {
           store.set('stretched_mode', false);
         }
+
 
         // check if run_at_startup is configured and set default false value if not
         if (!store.get('run_at_startup')) {
@@ -767,6 +966,7 @@ if (!gotTheLock) {
               submenu: [
                 {
                   label: '↔️ ' + i18n.__('stretched_mode'),
+                  id: 'stretched_mode',
                   submenu: [
                     {
                       label: i18n.__('logging_sw'),
@@ -1070,6 +1270,7 @@ if (!gotTheLock) {
                     {
                       label: i18n.__('randomize_datetime_pos'),
                       type: 'checkbox',
+                      id: 'randomize_datetime_pos',
                       enabled: store.get('show_datetime') ? true : false,
                       checked: store.get('randomize_datetime_pos'),
                       click: (option) => {
@@ -1193,11 +1394,18 @@ if (!gotTheLock) {
                   //type: 'checkbox',
                   enabled: store.get('logging'),
                   click: () => {
-                    writeLog('Opening log file...');
-                    openLog(path.join(app.getPath('userData'), 'app.log'));
+                    writeLog(`Opening app.log file in ${app.getPath('userData')}`);
+                    openFile(path.join(app.getPath('userData'), 'app.log'));
                   }
                 },
               ]
+            },
+            {
+              label : '🛠️  ' + i18n.__('settings'),
+              click: () => {
+                writeLog(`Opening config.json file in ${app.getPath('userData')}`);
+                openFile(path.join(app.getPath('userData'), 'config.json'));
+              }
             },
             {
               label : 'ℹ️  ' + i18n.__('about'),
@@ -1220,7 +1428,16 @@ if (!gotTheLock) {
                 }
                 app.exit(0);
               },
-            }
+            },
+            /*{ type: 'separator' },
+             {
+              label: '  ' + i18n.__('detect_media'),
+              click: () => {
+                displays.forEach((display) => {
+                  detectMedia(mainWindow[display.id]);
+                })
+              }
+            },*/
         ];
 
         // to fix low performance
@@ -1241,6 +1458,18 @@ if (!gotTheLock) {
           writeLog(app.getName() + " v."+app.getVersion() + ' is exited')
           app.exit(0);
         })
+
+        // initialize electron-audio-loopback plugin
+        let initialized = await initSystemAudioLoopback({
+          /*forceCoreAudioTap: false,
+          removeVideo: false,
+          loopbackWithMute: true,
+          onAfterGetSources: (sources) => {
+            console.log('sources', sources);
+            return sources;
+          }*/
+        });
+
 
         // This method will be called when Electron has finished
         // initialization and is ready to create browser windows.
@@ -1325,7 +1554,7 @@ if (!gotTheLock) {
             //if (!isWindows || config) {
               //trayIcon = icon;
               appIcon = new Tray(trayIcon)
-              var contextMenu = Menu.buildFromTemplate(appIconMenuTemplate)
+              contextMenu = Menu.buildFromTemplate(appIconMenuTemplate)
               appendLanguages(contextMenu,lang_files);
               appIcon.setToolTip(app.getName() + " v."+app.getVersion());
               appIcon.setContextMenu(contextMenu)
@@ -1348,7 +1577,10 @@ if (!gotTheLock) {
               })
             //}
             // init graphics =)
-            displays = screen.getAllDisplays();
+            //displays = screen.getAllDisplays();
+
+            // pull displays to selector menu and wait user chosen displays arrays
+            displays = processDisplays(appIconMenuTemplate);
 
             clearTimeout(debounce);
           
@@ -1373,6 +1605,7 @@ if (!gotTheLock) {
                 restartApp();
               }, delay);
             });
+
 
             const deviceCache = new Map();
             let number_of_hid_devices = 0;
@@ -1413,54 +1646,65 @@ if (!gotTheLock) {
               });
             })
 
-            // streched window over each available monitor
-            if (store.get('stretched_mode')) {
-              //writeLog('Streched screensaver mode');
-              let minX = 0, minY = 0, maxX = 0, maxY = 0
+            
+            //writeLog(store.get('selected_displays')?.displays.length, true)
 
-              displays.forEach((display) => {
-                const { x, y, width, height } = display.bounds
-                
-                if (x < minX) minX = x
-                if (y < minY) minY = y
-                if ((x + width) > maxX) maxX = x + width
-                if ((y + height) > maxY) maxY = y + height
-              })
+            if ( (displays.length > 1) /*|| ((store.get('selected_displays')?.displays?.length ?? 0) > 1) || (store.get('selected_displays') == 'all') || (!store.get('selected_displays'))*/ ) {
+              // streched window over each available monitor
+              if (store.get('stretched_mode')) {
+                // force randomize_datetime_pos true and disable
+                contextMenu.getMenuItemById(`randomize_datetime_pos`).enabled = false;
+                store.set('randomize_datetime_pos', true);
+                contextMenu.getMenuItemById(`randomize_datetime_pos`).checked = true;
+                //contextMenu.getMenuItemById(`randomize_datetime_pos`).visible = false;
+                appIcon.setContextMenu(contextMenu)
 
-              const fullVirtualBounds = {
-                x: minX,
-                y: minY,
-                width: maxX - minX,
-                height: maxY - minY
-              }
 
-              
+                //writeLog('Streched screensaver mode');
+                let minX = 0, minY = 0, maxX = 0, maxY = 0
+                let src_bounds = [];
 
-              displays = [
-                {
-                  id: 'stretched',
-                  bounds: fullVirtualBounds
+                displays.forEach((display) => {
+
+                  const { x, y, width, height } = display.bounds
+                  src_bounds.push(display.bounds)
+                  if (x < minX) minX = x
+                  if (y < minY) minY = y
+                  if ((x + width) > maxX) maxX = x + width
+                  if ((y + height) > maxY) maxY = y + height
+                })
+
+                const fullVirtualBounds = {
+                  x: minX,
+                  y: minY,
+                  width: maxX - minX,
+                  height: maxY - minY
                 }
-              ]
-
-              //writeLog(displays, true)
-
+                displays = [
+                  {
+                    id: 'stretched',
+                    bounds: fullVirtualBounds,
+                    src_bounds: src_bounds
+                  }
+                ]
+              }
+            } else {
+              // disable stretched_mode in menu
+              contextMenu.getMenuItemById(`stretched_mode`).enabled = false;
+              store.set('stretched_mode', false);
+              contextMenu.getMenuItemById(`stretched_mode`).visible = false;
+              appIcon.setContextMenu(contextMenu)
             }
+
+            let detector = false;
+
             // independent fullscreen window on each available monitor
             displays.forEach((display) => {
-                writeLog(`Display found: ${display.label||'NONAME'} (id ${display.id})`);
-                const { x, y, width, height } = display.bounds;
+                writeLog(`Display to use: ${display.label||'NONAME'} (id ${display.id})`);
+                let { x, y, width, height } = display.bounds;
 
                 // Create the browser window.
                 mainWindow[display.id] = new BrowserWindow({
-                    //x: (isLinux) ? x-1 : x, // -1 to compensate focusable in linux
-                    x: x,
-                    //y: (isLinux) ? y-1 : y, // -1 to compensate focusable in linux
-                    y: y,
-                    width: (isLinux) ? width + 2 : width, // +2 to compensate focusable in linux
-                    //width: width,
-                    height: (isLinux) ? height + 2 : height, // +2 to compensate focusable in linux
-                    //height: height,
                     fullscreen: false,
                     focusable: false,
                     roundedCorners: false, // for macos
@@ -1473,6 +1717,7 @@ if (!gotTheLock) {
                     webPreferences: {
                         nodeIntegration: true,
                         contextIsolation: false,
+                        //preload: path.join(__dirname, 'ribbons.js')
                         //enableRemoteModule: false, // turn off remote
                     }
                 });
@@ -1481,7 +1726,12 @@ if (!gotTheLock) {
                 mainWindow[display.id].setAlwaysOnTop(true, 'screen-saver', 1);
 
                 // Windows DWM sometimes resets bounds on first render. Re-apply after ready-to-show.
-                mainWindow[display.id].setBounds(display.bounds);
+                mainWindow[display.id].setBounds({
+                  x: x,
+                  y: y,
+                  width: (isLinux) ? width + 2 : width, // +2 to compensate focusable in linux
+                  height: (isLinux) ? height + 2 : height, // +2 to compensate focusable in linux
+                });
                 //mainWindow[display.id].setResizable(false);
 
                 // and load the index.html of the app.
@@ -1497,13 +1747,62 @@ if (!gotTheLock) {
                   datetime_front: store.get('datetime_front'),
                   show_datetime: store.get('show_datetime'),
                   randomize_datetime_pos: store.get('randomize_datetime_pos'),
-                  display_bounds: display.bounds
+                  display_bounds: display.bounds,
+                  src_bounds: display.src_bounds
                 }
 
                 // Hide the menu
                 mainWindow[display.id].setMenu(null);
 
                 //mainWindow[display.id].webContents.toggleDevTools();
+
+                if (!detector) {
+                  mainWindow[display.id].webContents.on('did-finish-load', () => {
+                    if (isMac) {
+                      if (store.get('skip_media_detect') === undefined) {
+                        dialog.showMessageBox(/*mainWindow[display.id], */{
+                          type: 'info',
+                          message: i18n.__('warning_media_detect'),
+                          detail: i18n.__('warning_media_detect_details'),
+                          buttons: [i18n.__('yes'), i18n.__('no')],
+                          defaultId: 1,
+                          cancelId: 2
+                        })
+                        .then((result) => {
+                          // if yes
+                          if (result.response == 0) {
+                            store.set('skip_media_detect', true)
+                          } else if (result.response == 1) {
+                            store.set('skip_media_detect', false)
+                            restartApp();
+                          } else {
+                            // if close dialog - exit app
+                            app.exit(0)
+                          }
+                        })
+                      }
+                    } else {
+                      if (store.get('skip_media_detect') === undefined) {
+                        store.set('skip_media_detect', false)
+                      }
+                    }
+
+                    if (store.get('skip_media_detect') === false) {
+                      // run media detect in each window
+                      writeLog(`Start media-detection at ${display.label||'NONAME'} (id ${display.id})`);
+                      mainWindow[display.id].webContents.send('start-detection', store.get('idle_time'));
+                      
+                      const onResponse = (event, response) => {
+                        //writeLog(response)
+                        sound_detected = response;
+                      };
+
+                      ipcMain.on('media-detection-response', onResponse);
+                    }
+                  });
+                }
+
+                detector = true;
 
                 setInterval(function () {
                   // dont run screensaver if system is suspended or screen is locked
@@ -1529,7 +1828,7 @@ if (!gotTheLock) {
 
                     //writeLog(idle_time + 's')
                   
-                    if (idle_time > store.get('idle_time')) {
+                    if (idle_time > store.get('idle_time') && !sound_detected) {
                       (async () => {
                         try {
                           if (!isLinux) {

@@ -4,17 +4,17 @@ Famous windows-like Ribbons screensaver made with js and Electron wrapped for mu
 <img align="center" width="100%" src="https://raw.githubusercontent.com/drlight17/ribbons-electron/master/ribbons-example.gif">
 
 ## Minimum OS requirements
-MacOS 10.15 Catalina (since [0.2.2-alpha](https://github.com/drlight17/ribbons-electron/releases/0.2.2-alpha)), Windows 8/2012, Linux with modern kernel version (>=5.x)
+MacOS 12.3 (since [0.5.0](https://github.com/drlight17/ribbons-electron/releases/0.5.0)), Windows 10+, Linux with modern kernel version (>=6.x) and PulseAudio
 
 ## 📦 Download and install
 
-Go to landing page https://ribbons.drlight.fun/, download your platform latest version and follow installation
+Go to landing page https://drlight17.github.io/, download your platform latest version and follow installation
 
 ---
 
 ## Supported settings
 All app settings are saved in the local user folder in file config.json:
-- Windows 8 and newer: `%AppData%\Ribbons screensaver`
+- Windows 10 and newer: `%AppData%\Ribbons screensaver`
 - Linux `~/.config/Ribbons screensaver`
 - MacOS: `~/Library/Application Support/Ribbons screensaver`
 

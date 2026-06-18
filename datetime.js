@@ -1,7 +1,7 @@
 export function updateDateTime(locale) {
     const now = new Date();
 
-    const dateOptions = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
+    const dateOptions = { year: 'numeric', month: 'short', day: 'numeric', weekday: 'short' };
     const formattedDate = now.toLocaleDateString(locale, dateOptions);
 
     const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
@@ -39,7 +39,7 @@ export function showDRL(){
     }, duration);
 }
 
-function toggleAnimation(element) {
+function toggleAnimation(element, dur_base) {
     element.classList.remove('appear-disappear-1', 'appear-disappear-2');
 
     void element.offsetWidth; // Critical browser reflow trigger
@@ -50,9 +50,6 @@ function toggleAnimation(element) {
 
     element.classList.add(nextClass);
     // set randomize datetime animation duration
-
-    // Randomize duration for EACH element (10-30s)
-    let dur_base = Math.floor(Math.random() * 21) + 10;
 
     let dur = `${dur_base}s`
 
@@ -94,9 +91,15 @@ function getActiveAnimations(element) {
     return animations.length > 0;
 }
 
-export function randomizePosition(bounds) {
+export function checkContainerMaxSize() {
+  let element = document.getElementsByClassName('datetime-container')[0];
+  // do hidden datetime-container max size calc
+  cont_width = element.getBoundingClientRect().width;
+  cont_height = element.getBoundingClientRect().height;
+  //console.log(`datetime-container size: ${ cont_width }x${cont_height}`)
+}
 
-    
+export function randomizePosition(bounds, src_bounds, dur_base) {
     let element = document.getElementsByClassName('datetime-container')[0];
 
     // Check if animation is already running
@@ -105,7 +108,7 @@ export function randomizePosition(bounds) {
         return; // Skip if animation is active
     }
 
-    let { left, top } = getRandomPosition(bounds, 10, 500);
+    let { left, top } = getRandomPosition(bounds, src_bounds);
 
 
     /*if (Math.random() > 0.5) {
@@ -114,41 +117,69 @@ export function randomizePosition(bounds) {
 
     element.style.top = top;
     element.style.left = left;
-    toggleAnimation(element);
+    toggleAnimation(element, dur_base);
 
 }
 
-let lastPosition = null;
+let lastPosition = { left: 0, top: 0 };
+let cont_width;
+let cont_height;
 
-function getRandomPosition(bounds) {
-  const padding = 0.15; // % padding
-  const px_padding = 300;
-  const w = bounds.width;
-  const h = bounds.height;
+function getRandomPosition(bounds, src_bounds) {
+  const padding_w = 0; // % w padding
+  const padding_h = 0.15; // % h padding
+  let w;
+  let h;
+  let x;
+  let y;
+  let display;
+  let display_id;
+
+  if (Array.isArray(src_bounds) && src_bounds.length > 0) {
+    display_id = Math.floor(Math.random() * src_bounds.length);
+    display = src_bounds[display_id];
+    w = display.width;
+    h = display.height;
+    x = display.x;
+    y = display.y;
+  } else {
+    x = 0;
+    y = 0;
+    w = bounds.width;
+    h = bounds.height;
+  }
+  
   const minDistance = 0.5 * Math.min(w, h);
-  const maxAttempts = 50;
   let distance;
   
   let left, top;
-  
+  let attempt = 0;
+  let pad_diff;
+
   do {
-    left = Math.round(Math.random() * (w * (1 - 2 * padding))/* + w * padding - px_padding*/);
-    top = Math.round(Math.random() * (h * (1 - 2 * padding))/* + h * padding - px_padding*/);
+
     
-    if (lastPosition) {
-      const dx = left - lastPosition.left ;
-      const dy = top - lastPosition.top;
-      distance = Math.sqrt(dx * dx + dy * dy);
+    left = Math.round(Math.random() * (w * (1 - 2 * padding_w)) + x);
+    //left = 600
+    top = Math.round(Math.random() * (h * (1 - 2 * padding_h)) + y);
+    
+    const dx = left - lastPosition.left ;
+    const dy = top - lastPosition.top;
+    distance = Math.sqrt(dx * dx + dy * dy);
+
+    pad_diff = w*(1 - 2 * padding_w) + x - left // px difference between generated left and display width multiplied by padding+x offset
+
+    /*console.log(`Chosen display id: ${display_id}`)
+    console.log(display)
+    console.log(`cont_width: ${cont_width/1.8}`)
+    console.log(`Random 'left' range: ${x} - ${(w * (1 - 2 * padding_w))+x}`)
+    console.log(`px difference between generated left and display + x offset: ${pad_diff} `)
+    console.log(`left: ${left}, top: ${top}`)*/
       
-    } else {
-      break; // first run - skip
-    }
-    
-  } while ((distance < minDistance) && (left < w * padding) && (top < h * padding));
+  // 1.8 - from style.css we scaling datetime container by 1.8 multiplier
+  } while ( ((distance < minDistance) && (top < h * padding_h)) || (pad_diff <= cont_width/1.8 ) || (left <= x));
   
   lastPosition = { left, top };
-
-  //console.log(`left: ${left}, top: ${top}`)
 
   return { left, top };
 }

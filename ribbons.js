@@ -469,7 +469,9 @@
 // the screensaver glue: making sure we quit when needed
 const { ipcRenderer } = require('electron')
 
-import { updateDateTime, showDateTime, setFront, randomizePosition, pauseDateTimeAnimation, resumeDateTimeAnimation, showDRL } from './datetime.js';
+const { getLoopbackAudioMediaStream } = require('electron-audio-loopback');
+
+import { updateDateTime, showDateTime, checkContainerMaxSize, setFront, randomizePosition, pauseDateTimeAnimation, resumeDateTimeAnimation, showDRL } from './datetime.js';
 
 let Ribbons_instance = null;
 var colorCycleSpeed = null;
@@ -478,6 +480,7 @@ var options = [];
 var AnimationId = null;
 let paused = false;
 let delay;
+let lastSoundTime = Date.now();
 
 function start_Ribbons(colorSaturation, colorCycleSpeed, options) {
     // ribbon appearance section
@@ -498,6 +501,48 @@ function start_Ribbons(colorSaturation, colorCycleSpeed, options) {
         singleColor: options["singleColor"]  // set ribbon single color in HSL(Hue, Saturation, Lightness) model
     });
 }
+
+
+ipcRenderer.on('start-detection', async (event, timeout) => {
+    //console.log(timeout)
+    try {
+        console.log('before loopback');
+        const stream = await getLoopbackAudioMediaStream();
+        console.log('after loopback');
+        const ctx = new AudioContext();
+        const source = ctx.createMediaStreamSource(stream);
+        const analyser = ctx.createAnalyser();
+
+        source.connect(analyser);
+
+        const data = new Uint8Array(analyser.fftSize);
+
+        setInterval(() => {
+            analyser.getByteTimeDomainData(data);
+
+            let sum = 0;
+            for (let i = 0; i < data.length; i++) {
+                const v = (data[i] - 128) / 128;
+                sum += v * v;
+            }
+
+            const rms = Math.sqrt(sum / data.length);
+
+            if (rms >= 0.001) {
+                lastSoundTime = Date.now();
+            }
+
+            const playing = (Date.now() - lastSoundTime) < timeout*1000;
+
+            ipcRenderer.send('media-detection-response', playing);
+
+        }, 250);
+    } catch (err) {
+
+        console.error(err);
+
+    }
+});
 
 ipcRenderer.on('send-stop', (event, flag) => {
     // stop animation and clear canvas and context from memory
@@ -572,16 +617,22 @@ ipcRenderer.on('send-options', (event, got_options, pause) => {
         if (options["datetime_front"]) {
             setFront();
         }
+        
+        // Randomize animation duration for EACH element (10-30s)
+        let dur_base = Math.floor(Math.random() * 21) + 10;
+        //let dur_base = 2;
+        // check datetime container max size
+        checkContainerMaxSize();
 
         // set randomize position
         if (options["randomize_datetime_pos"]) {
           const randomizeWithJitter = () => {
             // Random delay between 1s-10s
             delay = 1000 + Math.random() * 10000;
-            
+            //delay = 2000
             setTimeout(() => {
                 if (!paused) {
-                    randomizePosition(options['display_bounds']);
+                    randomizePosition(options['display_bounds'],options['src_bounds'], dur_base );
                     randomizeWithJitter(); 
                 }
             }, delay);
