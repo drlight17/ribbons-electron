@@ -12,7 +12,7 @@
   "type": "module",
   "icon": "icon.png",
   "main": "./main.js",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "author": "Yuri Samoilov <root@drlight.fun>",
   "homepage": "https://github.com/drlight17/ribbons-electron",
   "build": {
@@ -44,7 +44,10 @@
           ]
         }
       ],
-      "asarUnpack": "./icon.png"
+      "asarUnpack": [
+        "./icon.png",
+        "./iconPaused.png"
+      ]
     },
     "win": {
       "icon": "icon.ico",
@@ -68,19 +71,16 @@
           ]
         }
       ],
-      "asarUnpack": "./icon.ico"
+      "asarUnpack": [
+        "./icon.ico",
+        "./iconPaused.ico"
+      ]
     },
     "linux": {
       "icon": "icon.icns",
       "category": "Multimedia",
       "syncDesktopName": true,
       "target": [
-        {
-          "target": "flatpak",
-          "arch": [
-            "x64"
-          ]
-        },
         {
           "target": "AppImage",
           "arch": [
@@ -106,7 +106,10 @@
           ]
         }
       ],
-      "asarUnpack": "./icon.png"
+      "asarUnpack": [
+        "./icon.png",
+        "./iconPaused.png"
+      ]
     }
   },
   "scripts": {
@@ -131,8 +134,7 @@
     "electron-prompt": "latest",
     "electron-store": "latest",
     "node-desktop-idle-v2": "latest",
-    "node-hid": "latest",
-    "robotjs": "latest"
+    "node-hid": "latest"
   },
   "devDependencies": {
     "electron": "^31",

@@ -16,7 +16,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const robot = require('robotjs');
+//const robot = require('robotjs');
 
 const HID = require('node-hid');
 
@@ -104,58 +104,81 @@ if (isLinux) {
   store = new Store();
 }
 
+// add paused icon
+if (isLinux) {
+  var iconPausedPath = path.resolve(getResourceDirectory(), "iconPaused.png");
+} else if (isMac){
+  var iconPausedPath = path.join(__dirname, store.get('app_icon_name') || 'iconPaused.png');
+} else if (isWindows) {
+  var iconPausedPath = path.resolve(getResourceDirectory(), "iconPaused.ico");
+}
+
 // **************** functions block *********************************
 
 // stop screensaver func
 function stopScreensaver(display, win, checkid) {
     
-  if (mainWindow[display.id].isVisible()) {
+  if (win.isVisible()) {
     if (display.id != "stretched") {
       win.setFullScreen(false);
     }
+    //win.webContents.send('hide-button-cursor');
     win.webContents.send('send-stop',true);
     win.hide();
     running_screensaver = {};
   }
+  //win.setFocusable(false);
   clearInterval(checkid);
+
 }
 
 // toggle play/pause screensaver
 function toggleScreensaver(display, win) {
-  if (running_screensaver[display.id]) {
+  //if (running_screensaver[display.id]) {
     if (!paused[display.id]) {
       win.webContents.send('send-pause');
       paused[display.id] = true;
+      writeLog("Screensaver is paused")
+      contextMenu.getMenuItemById(`pause_menu`).enabled = false;
+      appIcon.setContextMenu(contextMenu);
+      appIcon.setImage(trayIconPaused);
     } else {
       win.webContents.send('send-stop',true);
       startScreensaver(mainWindow, display, true);
       paused[display.id] = false;
+      writeLog("Screensaver is resumed")
+      contextMenu.getMenuItemById(`pause_menu`).enabled = true;
+      appIcon.setContextMenu(contextMenu);
+      appIcon.setImage(trayIcon);
     }
-  }
+  //}
 }
 
 // start screensaver func
 function startScreensaver(mainWindow, display, start) {
-    /*writeLog(`isLocked_suspend status for display ${display.label}(${display.id}): ${isLocked_suspend}`)
-    writeLog('running_screensaver status: ')
-    writeLog(running_screensaver, true)
-    writeLog('isFullscreen status: ')
-    writeLog(isFullscreen, true)*/
   if (!mainWindow[display.id].isVisible() || (start)) {
     writeLog(`Start screensaver at display ${display.label||'NONAME'} (id ${display.id})`);
+    paused[display.id] = false;
     //run_screensaver();
     if (display.id != "stretched") {
       mainWindow[display.id].setFullScreen(true);
 
     }
-    //mainWindow[display.id].setFullScreenable(false);
+    mainWindow[display.id].setFocusable(true);
     mainWindow[display.id].webContents.send('send-options',optionsArray[display.id], paused[display.id]);
-    if (isMac) {
+    /*if (isMac) {
       hideCursor(mainWindow[display.id]);
-    }
+    }*/
 
-    mainWindow[display.id].showInactive();
+    mainWindow[display.id].show();
+
+    //mainWindow[display.id].focus();
+    //setTimeout(()=>{
+       mainWindow[display.id].webContents.focus();
+    //}, 3000)
+   
     running_screensaver[display.id] = true;
+
     // delay activity tracking, otherwise we'll close immediately
     
     setTimeout( function() {
@@ -169,11 +192,11 @@ function startScreensaver(mainWindow, display, start) {
   }
 }
 
-// to hide system cursor on macos using robotjs
-function hideCursor (mainWin) {
+// to hide system cursor using robotjs
+/*function hideCursor (mainWin) {
     const screenSize = robot.getScreenSize();
     robot.moveMouse(screenSize.width - 1 , screenSize.height - 1);
-}
+}*/
 
 function processDisplays(appIconMenuTemplate) {
 
@@ -678,11 +701,11 @@ Requires=graphical-session.target
 
 [Service]
 Type=simple
-Restart=on-failure
-RestartSec=5s
 WorkingDirectory=`+Path+`
-ExecStart=bash -c '`+executable+` --systemd'
+ExecStart=`+executable+` --systemd
 Environment="NODE_ENV=production"
+KillMode=mixed
+TimeoutStopSec=10
 
 [Install]
 WantedBy=graphical-session.target`;
@@ -691,6 +714,8 @@ WantedBy=graphical-session.target`;
           fs.writeFileSync(app.getPath('home')+"/.config/autostart/"+appNameLC+".desktop",shortcut_contents, 'utf-8');
         }
         if ((!fs.existsSync(app.getPath('home')+"/.config/systemd/user/"+appNameLC+".service")) || exec_changed) {
+          // to force create subfolder if it is not exist to prevent errors
+          fs.mkdirSync(path.dirname(`${app.getPath('home')}/.config/systemd/user/${appNameLC}.service`), { recursive: true });
           fs.writeFileSync(app.getPath('home')+"/.config/systemd/user/"+appNameLC+".service",systemd_contents, 'utf-8');
           exec(`systemctl --user daemon-reload`);
           exec(`systemctl --user enable `+appNameLC+`.service`);
@@ -938,11 +963,14 @@ if (!gotTheLock) {
         }
         
         let icon = nativeImage.createFromPath(iconPath); // template with center transparency
+        let iconPaused = nativeImage.createFromPath(iconPausedPath);
         var trayIcon = icon
+        var trayIconPaused = iconPaused
         if (isMac) {
           //var icon_bw = await bw_icon_process(icon);
           // as this icon is for macos tray only resize it here
           trayIcon = trayIcon.resize({width:16});
+          trayIconPaused = trayIconPaused.resize({width:16});
         }
 
         
@@ -953,11 +981,31 @@ if (!gotTheLock) {
         let appIconMenuTemplate = [
 
             {
-              label: '⿻  ' + i18n.__('show_now'),
+              label: '⏵  ' + i18n.__('show_now'),
               click: () => {
                 displays.forEach((display) => {
+                  if (paused[display.id]) {
+                    if (!contextMenu.getMenuItemById(`pause_menu`).enabled) {
+                      contextMenu.getMenuItemById(`pause_menu`).enabled = true;
+                      appIcon.setContextMenu(contextMenu);
+                      appIcon.setImage(trayIcon);
+                      writeLog("Screensaver is resumed");
+                    }
+                  }
                   startScreensaver(mainWindow, display);
-                })
+                });
+              },
+            },
+            {
+              label: '⏸  ' + i18n.__('pause'),
+              id: 'pause_menu',
+              accelerator: 'Control+P',
+              registerAccelerator: false,
+              click: () => {
+                displays.forEach((display) => {
+                  toggleScreensaver(display, mainWindow[display.id]);
+                });
+                //Menu.getApplicationMenu().getMenuItemById('pause_menu').enabled = false;
               },
             },
             { type: 'separator' },
@@ -1470,6 +1518,11 @@ if (!gotTheLock) {
           }*/
         });
 
+        // fix win focus issues in wayland
+        /*if (isLinux) {
+          app.commandLine.appendSwitch('enable-features', 'UseOzonePlatform');
+          app.commandLine.appendSwitch('ozone-platform', 'x11');
+        }*/
 
         // This method will be called when Electron has finished
         // initialization and is ready to create browser windows.
@@ -1560,16 +1613,17 @@ if (!gotTheLock) {
               appIcon.setContextMenu(contextMenu)
 
               appIcon.on('click', (event) => {
-                /*if (mainWindow.isVisible() && !mainWindow.isMinimized()) {
-                  mainWindow.hide()
-                  //win_loading.hide();
-                } else {
-                  mainWindow.show()
-                }*/
                 displays.forEach((display) => {
+                  if (paused[display.id]) {
+                    if (!contextMenu.getMenuItemById(`pause_menu`).enabled) {
+                      contextMenu.getMenuItemById(`pause_menu`).enabled = true;
+                      appIcon.setContextMenu(contextMenu);
+                      appIcon.setImage(trayIcon);
+                      writeLog("Screensaver is resumed");
+                    }
+                  }
                   startScreensaver(mainWindow, display);
                 })
-
               })
 
               appIcon.on('context', (event) => {
@@ -1706,13 +1760,13 @@ if (!gotTheLock) {
                 // Create the browser window.
                 mainWindow[display.id] = new BrowserWindow({
                     fullscreen: false,
-                    focusable: false,
+                    focusable: false, // false prevents cursor from hiding - need to changed it after window creation
                     roundedCorners: false, // for macos
                     frame: false,
                     icon: icon,
                     show: false,
                     skipTaskbar: true,
-                    enableLargerThanScreen: true,
+                    enableLargerThanScreen: false,
                     disableAutoHideCursor: false,
                     webPreferences: {
                         nodeIntegration: true,
@@ -1758,6 +1812,7 @@ if (!gotTheLock) {
 
                 if (!detector) {
                   mainWindow[display.id].webContents.on('did-finish-load', () => {
+
                     if (isMac) {
                       if (store.get('skip_media_detect') === undefined) {
                         dialog.showMessageBox(/*mainWindow[display.id], */{
@@ -1827,6 +1882,10 @@ if (!gotTheLock) {
                     }*/
 
                     //writeLog(idle_time + 's')
+
+                    /*if (idle_time > 5) {
+                      mainWindow[display.id].webContents.send('hide-button-cursor');
+                    }*/
                   
                     if (idle_time > store.get('idle_time') && !sound_detected) {
                       (async () => {
@@ -1889,19 +1948,25 @@ if (!gotTheLock) {
 
                           /*writeLog("Display: "+display.label+" Active app is fullscreen: "+isFullscreen[display.id] + 
                             " Running screensaver: "+running_screensaver[display.id])*/
-
-                          if (/*(!running_screensaver[display.id])&&*/(!isFullscreen[display.id] || (isDesktopWindow(curWindow[display.id])))) {
+                          if (paused[display.id]) {
+                            return;
+                          }
+                          //writeLog(paused[display.id]);
+                          if (/*(!running_screensaver[display.id])&&*/(!isFullscreen[display.id] || (isDesktopWindow(curWindow[display.id]))) /*|| (!paused[display.id])*/) {
                             //console.log('Current active window is not fullscreen or desktop. Running screensaver.');
                             startScreensaver(mainWindow, display);
                           }
                         } else {
                           //console.log('There is no active windows but it is Mac. Running screensaver.');
-                          startScreensaver(mainWindow, display);
+                          //writeLog(paused[display.id]);
+                          //if (!paused[display.id]) {
+                            startScreensaver(mainWindow, display);
+                          //}
                         }
                       })();
                     }
-                }, 1000);
-              }, 1000);
+                  }, 100);
+              }, 100);
 
             })
 
@@ -1918,6 +1983,22 @@ if (!gotTheLock) {
                 //iconPath: path.resolve(getResourceDirectory(), "icon.png"),
                 website: "https://ribbons.drlight.fun/"
             });
+
+            const clickResponse = (event) => {
+              /*writeLog("Close button click. Stopping screensaver at all displays.");
+              displays.forEach((display) => {
+                stopScreensaver(display, mainWindow[display.id], this);
+              });*/
+              // restart app to detect new hid include the virtual
+              restartApp();
+            };
+            /*const moveResponse = (event) => {
+              displays.forEach((display) => {
+                hideCursor(mainWindow[display.id])
+              });
+            };*/
+
+            ipcMain.on('close-button-clicked', clickResponse);
         });
 
     }
