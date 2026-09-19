@@ -481,6 +481,17 @@ var AnimationId = null;
 let paused = false;
 let delay;
 let lastSoundTime = Date.now();
+let close_button = document.getElementById('close-button');
+let hideCursorTimer;
+let lastShow = 0;
+
+close_button.addEventListener('click', () => {
+    ipcRenderer.send('close-button-clicked');
+});
+
+document.addEventListener("mousemove", show_cursor);
+document.addEventListener("keydown", show_cursor);
+document.addEventListener("click", show_cursor);
 
 function start_Ribbons(colorSaturation, colorCycleSpeed, options) {
     // ribbon appearance section
@@ -502,13 +513,40 @@ function start_Ribbons(colorSaturation, colorCycleSpeed, options) {
     });
 }
 
+function show_cursor(){
+    const now = Date.now();
+
+    if (now - lastShow < 1000) {
+        return;
+    }
+    
+    document.body.style.cursor = "default";
+
+    if (lastShow != 0) {
+        close_button.classList.remove('hidden');
+    }
+
+    lastShow = now;
+
+    clearTimeout(hideCursorTimer);
+
+    hideCursorTimer = setTimeout(() => {
+        document.body.style.cursor = "none";
+        close_button.classList.add('hidden');
+        lastShow = 0;
+    }, 2000); // Hide after 2 seconds of inactivity
+}
+
+/*function hide_cursor(){
+    // hide mouse cursor
+    //document.body.style.cursor = "none";
+    
+}*/
 
 ipcRenderer.on('start-detection', async (event, timeout) => {
     //console.log(timeout)
     try {
-        console.log('before loopback');
         const stream = await getLoopbackAudioMediaStream();
-        console.log('after loopback');
         const ctx = new AudioContext();
         const source = ctx.createMediaStreamSource(stream);
         const analyser = ctx.createAnalyser();
@@ -560,9 +598,19 @@ ipcRenderer.on('send-pause', (event) => {
     console.log('Pause animation')
 });
 
+/*ipcRenderer.on('hide-button-cursor', (event) => {
+    //console.log('Hide cursor and close button.');
+    hide_cursor();
+});*/
+
+/*ipcRenderer.on('show-button-cursor', (event) => {
+    //console.log('Show cursor and close button.');
+    show_cursor();
+});*/
+
 ipcRenderer.on('send-options', (event, got_options, pause) => {
 
-    if (pause) {
+    if (!pause) {
         resumeDateTimeAnimation();
         console.log('Animation were paused. Resume.')
         paused = false;
@@ -655,5 +703,8 @@ ipcRenderer.on('send-options', (event, got_options, pause) => {
     }
     randomizeDRLWithJitter();
 });
-// force hide mouse cursor
-document.body.style.cursor = "none";
+
+
+/*setTimeout(()=>{
+    close_button.classList.remove('hidden');
+}, 5000)*/
