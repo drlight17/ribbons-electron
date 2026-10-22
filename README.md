@@ -1,9 +1,8 @@
 # <h1><img align="center" width="100" height="100" src="https://raw.githubusercontent.com/drlight17/ribbons-electron/master/icon.png"> Ribbons Screensaver </h1>
 Famous windows-like Ribbons screensaver made with js and Electron wrapped for multi platform support
 
-<img align="center" width="100%" src="https://raw.githubusercontent.com/drlight17/ribbons-electron/master/ribbons-example.gif">
-
 <img align="center" width="100%" src="https://raw.githubusercontent.com/drlight17/ribbons-electron/master/ribbons_modern-example.gif">
+<img align="center" width="100%" src="https://raw.githubusercontent.com/drlight17/ribbons-electron/master/ribbons-example.gif">
 
 ## Minimum OS requirements
 MacOS 13 (since [1.0.0-RC1](https://github.com/drlight17/ribbons-electron/releases/1.0.0-RC1)), Windows 10+, Linux with modern kernel version (>=6.x) and PipeWire 
