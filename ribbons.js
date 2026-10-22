@@ -1,17 +1,18 @@
 /*global document, window, console, Ribbons*/
-
 /**
  * Ribbons Class File.
  * Creates low-poly ribbons background effect inside a target container.
  */
-(function (name, factory) {
-    
+const Ribbons = (function (name, factory) {
     "use strict";
-    
+
+    const result = factory();
+
     if (typeof window === "object") {
-        window[name] = factory();
+        window[name] = result;
     }
 
+    return result;
 })("Ribbons", function () {
     
     "use strict";
@@ -19,7 +20,6 @@
     var _w = window,
         _b = document.body,
         _d = document.documentElement;
-
     // random helper
     var random = function () {
         if (arguments.length === 1) { // only 1 argument
@@ -35,7 +35,6 @@
         }
         return 0; // default
     };
-
     // screen helper
     var screenInfo = function (e) {
         var width = Math.max(0, _w.innerWidth || _d.clientWidth || _b.clientWidth || 0),
@@ -53,13 +52,11 @@
             scrolly: scrolly
         };
     };
-
     // mouse/input helper
     var mouseInfo = function (e) {
         var screen = screenInfo(e),
             mousex = e ? Math.max(0, e.pageX || e.clientX || 0) : 0,
             mousey = e ? Math.max(0, e.pageY || e.clientY || 0) : 0;
-
         return {
             mousex: mousex,
             mousey: mousey,
@@ -67,7 +64,6 @@
             centery: mousey - (screen.height / 2)
         };
     };
-
     // point object
     var Point = function (x, y) {
         this.x = 0;
@@ -76,7 +72,6 @@
     };
     Point.prototype = {
         constructor: Point,
-
         set: function (x, y) {
             this.x = (x || 0);
             this.y = (y || 0);
@@ -123,11 +118,12 @@
             return this;
         }
     };
-
     // class constructor
     var Factory = function (options) {
         this._canvas = null;
         this._context = null;
+        this._bgCanvas = null;
+        this._bgContext = null;
         this._sto = null;
         this._width = 0;
         this._height = 0;
@@ -158,9 +154,12 @@
             // add animation effect to each ribbon section over time
             animateSections: true,
             // add blur shadow effect to each ribbon with radius
-            ribbonBlur: 10,
+            glow: 10,
             // single color default is off (random ribbons colors)
-            singleColor: false
+            singleColor: false,
+            // background painted on dedicated canvas (below datetime)
+            // dark | light | darkGradient | lightGradient
+            backgroundMode: "dark"
         };
         this._onDraw = this._onDraw.bind(this);
         this._onResize = this._onResize.bind(this);
@@ -168,11 +167,9 @@
         this.setOptions(options);
         this.init();
     };
-
     // class prototype
     Factory.prototype = {
         constructor: Factory,
-
         // Set and merge local options
         setOptions: function (options) {
             
@@ -186,30 +183,83 @@
                 }
             }
         },
+        _styleLayer: function (el, zIndex) {
+            el.style.display = "block";
+            el.style.position = "fixed";
+            el.style.margin = "0";
+            el.style.padding = "0";
+            el.style.border = "0";
+            el.style.outline = "0";
+            el.style.left = "0";
+            el.style.top = "0";
+            el.style.width = "100%";
+            el.style.height = "100%";
+            el.style.zIndex = String(zIndex);
+            el.style.pointerEvents = "none";
+            el.style.background = "transparent";
+        },
+
+        /**
+         * Background on its own canvas (z-index -2).
+         * Ribbons canvas stays transparent at z-index 0 so
+         * .datetime-container (z-index: -1) sits between them;
+         * .datetime-container.front (z-index: 4) goes above ribbons.
+         */
+        _drawBackground: function () {
+            var ctx = this._bgContext;
+            if (!ctx) return;
+            var W = this._width;
+            var H = this._height;
+            var mode = this._options.backgroundMode;
+            // Also respect body.light if mode not set explicitly
+            if ((!mode || mode === "dark") && document.body && document.body.classList.contains("light")) {
+                mode = "light";
+            }
+            ctx.clearRect(0, 0, W, H);
+            if (mode === "light") {
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(0, 0, W, H);
+            } else if (mode === "lightGradient") {
+                var bgL = ctx.createRadialGradient(W * 0.5, H * 0.42, 0, W * 0.5, H * 0.48, Math.max(W, H) * 0.78);
+                bgL.addColorStop(0, "#e9edf4");
+                bgL.addColorStop(0.48, "#c6cfde");
+                bgL.addColorStop(1, "#8998b0");
+                ctx.fillStyle = bgL;
+                ctx.fillRect(0, 0, W, H);
+            } else if (mode === "darkGradient") {
+                var bg = ctx.createRadialGradient(W * 0.5, H * 0.48, 0, W * 0.5, H * 0.48, Math.max(W, H) * 0.75);
+                bg.addColorStop(0, "#111b39");
+                bg.addColorStop(0.55, "#080d1c");
+                bg.addColorStop(1, "#03050c");
+                ctx.fillStyle = bg;
+                ctx.fillRect(0, 0, W, H);
+            } else {
+                ctx.fillStyle = "#000000";
+                ctx.fillRect(0, 0, W, H);
+            }
+        },
 
         // Initialize the ribbons effect
         init: function () {
             try {
-                this._canvas = document.createElement("canvas");
-                this._canvas.style["display"] = "block";
-                this._canvas.style["position"] = "fixed";
-                this._canvas.style["margin"] = "0";
-                this._canvas.style["padding"] = "0";
-                this._canvas.style["border"] = "0";
-                this._canvas.style["outline"] = "0";
-                this._canvas.style["left"] = "0";
-                this._canvas.style["top"] = "0";
-                this._canvas.style["width"] = "100%";
-                this._canvas.style["height"] = "100%";
-                this._canvas.style["z-index"] = "-1";
-                this._onResize();
+                // bg below datetime (-1); ribbons above datetime
+                this._bgCanvas = document.createElement("canvas");
+                this._bgCanvas.className = "ribbons-bg-canvas";
+                this._styleLayer(this._bgCanvas, -2);
 
+                this._canvas = document.createElement("canvas");
+                this._canvas.className = "ribbons-canvas";
+                this._styleLayer(this._canvas, 0);
+
+                this._onResize();
+                this._bgContext = this._bgCanvas.getContext("2d");
                 this._context = this._canvas.getContext("2d");
-                this._context.clearRect(0, 0, this._width, this._height);
                 this._context.globalAlpha = this._options.colorAlpha;
+                this._drawBackground();
 
                 window.addEventListener("resize", this._onResize);
                 window.addEventListener("scroll", this._onScroll);
+                document.body.appendChild(this._bgCanvas);
                 document.body.appendChild(this._canvas);
             } catch (e) {
                 console.warn("Canvas Context Error: " + e.toString());
@@ -217,7 +267,6 @@
             }
             this._onDraw();
         },
-
         // Create a new random ribbon and to the list
         addRibbon: function() {
             // tricolor
@@ -234,7 +283,6 @@
                 movey = 0,
                 startx = (dir === "right") ? min : max,
                 starty = Math.round(random(0, this._height));
-
             // asjust starty based on options
             if (/^(top|min)$/i.test(this._options.verticalPosition)) {
                 starty = 0 + hide;
@@ -257,8 +305,6 @@
             } else {
                 var color = Math.round(random(0, 360));
             }
-
-
             var ribbon = [],
                 point1 = new Point(startx, starty),
                 point2 = new Point(startx, starty),
@@ -267,21 +313,14 @@
                 //color = Math.round(random(0, 360)),
                 // randomize delay between each ribbon appearance
                 delay = Math.random() * 4;
-
-
-
             // buils ribbon sections
-
             while (true) {
                 if (stop <= 0) break;
                 stop--;
-
                 movex = Math.round((Math.random() * 1 - 0.2) * this._options.horizontalSpeed);
                 movey = Math.round((Math.random() * 1 - 0.5) * (this._height * 0.35));
-
                 point3 = new Point();
                 point3.copy(point2);
-
                 if (dir === "right") {
                     point3.add(movex, movey);
                     if (point2.x >= max) break;
@@ -290,7 +329,6 @@
                     if (point2.x <= min) break;
                 }
                 // point3.clampY( 0, this._height );
-
                 ribbon.push({ // single ribbon section
                     point1: new Point(point1.x, point1.y),
                     point2: new Point(point2.x, point2.y),
@@ -301,10 +339,8 @@
                     alpha: 0,
                     phase: 0,
                 });
-
                 point1.copy(point2);
                 point2.copy(point3);
-
                 // affects ribbon appear speed
                 //delay += 4;
                 //delay += 0.2;
@@ -318,7 +354,6 @@
             }
             this._ribbons.push(ribbon);
         },
-
         _drawRibbonSection: function (section) {
             if (section) {
                 if (section.phase >= 1 && section.alpha <= 0) {
@@ -331,10 +366,8 @@
                     section.alpha = Math.sin(section.phase) * 1;
                     section.alpha = (section.alpha <= 0) ? 0 : section.alpha;
                     section.alpha = (section.alpha >= 1) ? 1 : section.alpha;
-
                     if (this._options.animateSections) {
                         var mod = (Math.sin(1 + section.phase * Math.PI / 2) * 0.1);
-
                         if (section.dir === "right") {
                             section.point1.add(mod, 0);
                             section.point2.add(mod, 0);
@@ -363,25 +396,19 @@
                 var //s = this._options.colorSaturation,
                     //l = this._options.colorBrightness,
                     c = "hsla(" + section.color + ", " + s + ", " + l + ", " + section.alpha + " )";
-
                 this._context.save();
-
                 if (this._options.parallaxAmount !== 0) {
                     this._context.translate(0, this._scroll * this._options.parallaxAmount);
                 }
-
                 this._context.beginPath();
                 this._context.moveTo(section.point1.x, section.point1.y);
                 this._context.lineTo(section.point2.x, section.point2.y);
                 this._context.lineTo(section.point3.x, section.point3.y);
-
                 // set blur
-                this._context.shadowBlur = this._options.ribbonBlur;
+                this._context.shadowBlur = this._options.glow;
                 this._context.shadowColor = c;
-
                 this._context.fillStyle = c;
                 this._context.fill();
-
                 if (this._options.strokeSize > 0) {
                     this._context.lineWidth = this._options.strokeSize;
                     this._context.strokeStyle = c;
@@ -392,10 +419,8 @@
             }
             return false; // not done yet
         },
-
         // Draw ribbons
         _onDraw: function () {
-
             for (var i = 0; i < this._ribbons.length; ++i) {                
                 if (!this._ribbons[i]) {
                     this._ribbons.splice(i, 1);
@@ -403,308 +428,63 @@
                 }
             }
             
+            this._drawBackground();
             this._context.clearRect(0, 0, this._width, this._height);
-
             
             for (var a = 0; a < this._ribbons.length; ++a) {
-
                 var ribbon = this._ribbons[a];
-
                 if (!ribbon || !Array.isArray(ribbon) || ribbon.length === 0) {
                     this._ribbons[a] = null;
                     continue;
                 }
-
                 var numSections = ribbon.length;
                 var numDone = 0;
-
                 for (var b = 0; b < numSections; ++b) {
                     if (this._drawRibbonSection(ribbon[b])) {
                         numDone++;
                     }
                 }
-
                 if (numDone >= numSections) {
                     this._ribbons[a] = null;
                 }
             }
-
             while (this._ribbons.length < this._options.ribbonCount) {
                 this.addRibbon();
             }
-
-            AnimationId = requestAnimationFrame(this._onDraw.bind(this));
+            // AnimationId is set by controller.js (global)
+            if (typeof AnimationId !== 'undefined') {
+                AnimationId = requestAnimationFrame(this._onDraw.bind(this));
+            } else {
+                requestAnimationFrame(this._onDraw.bind(this));
+            }
         },
-
-
         // Update container size info
         _onResize: function(e) {
             var screen = screenInfo(e);
             this._width = screen.width;
             this._height = screen.height;
-
             if (this._canvas) {
                 this._canvas.width = this._width;
                 this._canvas.height = this._height;
-
                 if (this._context) {
                     this._context.globalAlpha = this._options.colorAlpha;
                 }
             }
+            if (this._bgCanvas) {
+                this._bgCanvas.width = this._width;
+                this._bgCanvas.height = this._height;
+            }
+            this._drawBackground();
         },
-
         // Update container size info
         _onScroll: function(e) {
             var screen = screenInfo(e);
             this._scroll = screen.scrolly;
         },
-
     };
-
     // export
     return Factory;
 });
 
-// electron related stuff
-// the screensaver glue: making sure we quit when needed
-const { ipcRenderer } = require('electron')
 
-const { getLoopbackAudioMediaStream } = require('electron-audio-loopback');
-
-import { updateDateTime, showDateTime, checkContainerMaxSize, setFront, randomizePosition, pauseDateTimeAnimation, resumeDateTimeAnimation, showDRL } from './datetime.js';
-
-let Ribbons_instance = null;
-var colorCycleSpeed = null;
-var colorSaturation = null;
-var options = [];
-var AnimationId = null;
-let paused = false;
-let delay;
-let lastSoundTime = Date.now();
-let close_button = document.getElementById('close-button');
-let hideCursorTimer;
-let lastShow = 0;
-
-close_button.addEventListener('click', () => {
-    ipcRenderer.send('close-button-clicked');
-});
-
-document.addEventListener("mousemove", show_cursor);
-document.addEventListener("keydown", show_cursor);
-document.addEventListener("click", show_cursor);
-
-function start_Ribbons(colorSaturation, colorCycleSpeed, options) {
-    // ribbon appearance section
-    Ribbons_instance = new Ribbons({
-        colorSaturation: colorSaturation, // set saturation
-        colorBrightness: "50%", // set brightness
-        colorAlpha: 1, // set semitransparency
-        colorCycleSpeed: colorCycleSpeed, // set color cycle speed
-        verticalPosition: "random", // make vertical position random
-        horizontalSpeed: options["horizontalSpeed"], // set speed
-        delay: options["delay"], //set delay
-        phase: options["phase"], //set phase
-        ribbonCount: options["ribbonCount"], // max onscreen visible ribbons
-        strokeSize: 1, // add stroke
-        parallaxAmount: -0.3, // lightn parallax
-        animateSections: true, // section animation
-        ribbonBlur: 30, // set ribbon blur intensity
-        singleColor: options["singleColor"]  // set ribbon single color in HSL(Hue, Saturation, Lightness) model
-    });
-}
-
-function show_cursor(){
-    const now = Date.now();
-
-    if (now - lastShow < 1000) {
-        return;
-    }
-    
-    document.body.style.cursor = "default";
-
-    if (lastShow != 0) {
-        close_button.classList.remove('hidden');
-    }
-
-    lastShow = now;
-
-    clearTimeout(hideCursorTimer);
-
-    hideCursorTimer = setTimeout(() => {
-        document.body.style.cursor = "none";
-        close_button.classList.add('hidden');
-        lastShow = 0;
-    }, 2000); // Hide after 2 seconds of inactivity
-}
-
-/*function hide_cursor(){
-    // hide mouse cursor
-    //document.body.style.cursor = "none";
-    
-}*/
-
-ipcRenderer.on('start-detection', async (event, timeout) => {
-    //console.log(timeout)
-    try {
-        const stream = await getLoopbackAudioMediaStream();
-        const ctx = new AudioContext();
-        const source = ctx.createMediaStreamSource(stream);
-        const analyser = ctx.createAnalyser();
-
-        source.connect(analyser);
-
-        const data = new Uint8Array(analyser.fftSize);
-
-        setInterval(() => {
-            analyser.getByteTimeDomainData(data);
-
-            let sum = 0;
-            for (let i = 0; i < data.length; i++) {
-                const v = (data[i] - 128) / 128;
-                sum += v * v;
-            }
-
-            const rms = Math.sqrt(sum / data.length);
-
-            if (rms >= 0.001) {
-                lastSoundTime = Date.now();
-            }
-
-            const playing = (Date.now() - lastSoundTime) < timeout*1000;
-
-            ipcRenderer.send('media-detection-response', playing);
-
-        }, 250);
-    } catch (err) {
-
-        console.error(err);
-
-    }
-});
-
-ipcRenderer.on('send-stop', (event, flag) => {
-    // stop animation and clear canvas and context from memory
-    Ribbons_instance._context.clearRect(0, 0, Ribbons_instance._canvas.width, Ribbons_instance._canvas.height);
-    cancelAnimationFrame(AnimationId);
-    Ribbons_instance._canvas.remove();
-    Ribbons_instance = null;
-    //Ribbons_instance.destroy();
-});
-
-ipcRenderer.on('send-pause', (event) => {
-    cancelAnimationFrame(AnimationId);
-    pauseDateTimeAnimation()
-    paused = true;
-    console.log('Pause animation')
-});
-
-/*ipcRenderer.on('hide-button-cursor', (event) => {
-    //console.log('Hide cursor and close button.');
-    hide_cursor();
-});*/
-
-/*ipcRenderer.on('show-button-cursor', (event) => {
-    //console.log('Show cursor and close button.');
-    show_cursor();
-});*/
-
-ipcRenderer.on('send-options', (event, got_options, pause) => {
-
-    if (!pause) {
-        resumeDateTimeAnimation();
-        console.log('Animation were paused. Resume.')
-        paused = false;
-    }
-
-
-    options = got_options;
-    //console.log(options["horizontalSpeed"])
-    document.body.classList.add(options["theme"]);
-
-    var colorCycleSpeed = options["colorCycleSpeed"];
-
-    var colorSaturation = "60%";
-
-    if ((options["singleColor"]) || (options["singleColor"] == 666) || (options["singleColor"] == 667)) {
-        colorCycleSpeed = 0;
-    }
-    if (options["singleColor"] == 666) {
-        colorSaturation = "0%";
-    }
-
-    if (options["horizontalSpeed"] == "v_fast") {
-        options["delay"] = 1.5;
-        options["phase"] = 0.07;
-    }
-
-    else if (options["horizontalSpeed"] == "fast") {
-        options["delay"] = 2;
-        options["phase"] = 0.04;
-    }
-
-    else if  (options["horizontalSpeed"] == "normal") {
-        options["delay"] = 4;
-        options["phase"] = 0.014;
-    }
-
-    else if  (options["horizontalSpeed"] == "slow") {
-        options["delay"] = 6;
-        options["phase"] = 0.007;
-    }
-
-    options["horizontalSpeed"] = 400;
-
-    start_Ribbons(colorSaturation, colorCycleSpeed, options);
-
-    // call datetime if it is on
-    if (options["show_datetime"]) {
-        updateDateTime(options["locale"]);
-        setInterval(() => updateDateTime(options["locale"]), 1000);
-        
-        // set front style
-        if (options["datetime_front"]) {
-            setFront();
-        }
-        
-        // Randomize animation duration for EACH element (10-30s)
-        let dur_base = Math.floor(Math.random() * 21) + 10;
-        //let dur_base = 2;
-        // check datetime container max size
-        checkContainerMaxSize();
-
-        // set randomize position
-        if (options["randomize_datetime_pos"]) {
-          const randomizeWithJitter = () => {
-            // Random delay between 1s-10s
-            delay = 1000 + Math.random() * 10000;
-            //delay = 2000
-            setTimeout(() => {
-                if (!paused) {
-                    randomizePosition(options['display_bounds'],options['src_bounds'], dur_base );
-                    randomizeWithJitter(); 
-                }
-            }, delay);
-          };
-
-          randomizeWithJitter();
-        } else {
-          showDateTime();
-        }
-    }
-
-    const randomizeDRLWithJitter = () => {
-        // Random delay between 1 - 5 mins
-        delay = Math.floor(Math.random() * 300000) + 60000;
-        //console.log(`DRL logo will appear after ${delay/1000}s`)
-        setTimeout(() => {
-            showDRL();
-            randomizeDRLWithJitter(); 
-        }, delay);
-    }
-    randomizeDRLWithJitter();
-});
-
-
-/*setTimeout(()=>{
-    close_button.classList.remove('hidden');
-}, 5000)*/
+export default Ribbons;

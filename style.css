@@ -1,9 +1,44 @@
 body{
     background-color: rgb(0, 0, 0);
-    transition: background 0.5s ease-in-out;
+    transition: background 0.5s ease-in-out, background-color 0.5s ease-in-out;
     font-family: Arial, sans-serif;
     overflow: hidden;
+    user-select: none;
 }
+
+/* Solid themes — classic parity */
+body.dark {
+    background-color: #000;
+    background-image: none;
+}
+body.light {
+    background-color: white;
+    background-image: none;
+}
+
+/* Gradient themes — used by modern engine (background on body, not canvas) */
+body.darkGradient {
+    background-color: #03050c;
+    background-image: radial-gradient(
+        ellipse at 50% 48%,
+        #111b39 0%,
+        #080d1c 55%,
+        #03050c 100%
+    );
+    background-attachment: fixed;
+}
+body.lightGradient,
+body.light.lightGradient {
+    background-color: #8998b0;
+    background-image: radial-gradient(
+        ellipse at 50% 42%,
+        #e9edf4 0%,
+        #c6cfde 48%,
+        #8998b0 100%
+    );
+    background-attachment: fixed;
+}
+
 span{
     display: block;
 }
@@ -13,44 +48,56 @@ canvas {
     left: 0px !important;
     width: 100% !important;
     height: 100% !important;
+    /* Transparent canvas so body background + datetime (z-index: -1) show through */
+    background: transparent !important;
 }
-
-button{
+button {
     position: absolute;
-    bottom: 50px;
+    top: 50px;
     right: 50px;
-    background-color: rgb(191, 191, 212);
+    background-color: gray;
+    opacity: .3;
+    /*filter: invert(1);*/
+    filter: grayscale(100%) contrast(20);
     border-radius: 50%;
     padding: 15px;
     outline: none;
     cursor: pointer;
     border: none;
+    transition: opacity .5s ease-in-out;
+    z-index: 10;
 }
-
+.light button {
+    filter: grayscale(100%) invert(1) contrast(20);
+}
+button:hover {
+    opacity: .8;
+    transition: opacity .5s ease-in-out;
+}
+button.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .5s ease-in-out;
+}
 .light{
     background-color: white;
 }
-
 .light .datetime-container{
     background-color: rgb(191 191 212 / 35%);
     opacity: .5;
 }
-
 .light .date{
     color: #333;
 }
-
 .light .time{
     color: black;
 }
-
 .drl-container {
     bottom: 0;
     right: 0;
     opacity: 1;
     transition: opacity 5s ease-in-out;
 }
-
 .drl-container img {
     display: inline;
     background: none;
@@ -60,31 +107,23 @@ button{
     right: 0px;
     bottom: 15px;
     margin-right: 10px;
-    /*transition: filter .1s ease, opacity .1s ease, background-color .1s ease, color .1s ease, box-shadow .1s ease, background .1s ease;*/
 }
-
 .drl-container.hidden {
     opacity: 0;
     transition: opacity 5s ease-in-out;
 }
-
 .light .drl-container img {
     filter: invert(1);
     opacity: .4;
 }
-
 .datetime-container.front {
     z-index: 4;
     opacity: .7;
 }
-
 .datetime-container.hidden {
     opacity: 0;
     transform: scale(1.8);
-    /*transition: opacity 5s ease-in-out;*/
-    /*transform: scale(1.5);*/
 }
-
 .datetime-container {
     backdrop-filter: blur(30px);
     max-width: fit-content;
@@ -94,42 +133,33 @@ button{
     background-color: rgb(191 191 212 / 20%);
     z-index: -1;
     position: absolute;
-    /*opacity: .4;
-    for non-randomized centered position */
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     animation-play-state: running;
 }
-
 .date {
     font-size:clamp(1.5rem, 3vw, 6rem);
-    /* color: #333; */
     color: rgb(255 255 255 / 50%);
 }
 .time {
     font-size:clamp(2rem, 4vw, 7rem);
-    /*color: #007bff;*/
     color: white;
     margin-top: 10px;
 }
-
 .appear-disappear-1 {
     animation: appearDisappear1 var(--dur) ease-in-out;
     animation-timing-function: linear;
     animation-fill-mode: forwards;
 }
-
 .appear-disappear-2 {
     animation: appearDisappear2 var(--dur) ease-in-out;
     animation-timing-function: linear;
     animation-fill-mode: forwards;
 }
-
 .datetime-container.paused {
   animation-play-state: paused;
 }
-
 @keyframes appearDisappear1 {
     0% {
         opacity: 0;
@@ -144,7 +174,6 @@ button{
         transform: scale(1.8);
     }
 }
-
 @keyframes appearDisappear2 {
     0% {
         opacity: 0;

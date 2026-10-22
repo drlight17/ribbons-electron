@@ -1,6 +1,6 @@
 import path from "path"
 import { fileURLToPath } from 'url';
-import { app, dialog } from 'electron'
+import { dialog, app } from 'electron'
 import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -21,6 +21,15 @@ let loadedLanguageTag;
 //let app = electron.app ? electron.app : electron.remote.app
 
 //export default i18n;
+// preprocess -dev path
+if (!app.isPackaged) {
+  let current_app_dir = app.getPath('userData')
+  // don't delete if already not empty userData folder from prod app
+  if (fs.readdirSync(current_app_dir).length === 0) {
+    fs.rmSync(current_app_dir, { recursive: true, force: true });
+  }
+  app.setPath ('userData', current_app_dir+"-dev");
+}
 
 const store = new Store();
 
@@ -38,7 +47,8 @@ class I18n {
         // check if no saved locale
         try {
             if ((store.get('locale')  == undefined) || (store.get('locale') == "")) {
-                if(fs.existsSync(path.join(__dirname, app.getLocaleCountryCode().toLowerCase() + '.json'))) {
+
+                if (fs.existsSync(path.join(__dirname, app.getLocaleCountryCode().toLowerCase() + '.json'))) {
                     loadedLanguageTag = app.getLocaleCountryCode().toLowerCase();
                 }
                 else {
@@ -59,11 +69,11 @@ class I18n {
                 fs.unlinkSync(app.getPath('userData')+"/config.json");
                 dialog.showErrorBox('Warn','Config file is cleared. Try app launch again.');
             }
-            catch {
-
+            catch (unlinkErr) {
+                console.error('Could not clear config file:', unlinkErr);
             }
             //app.relaunch();
-            app.exit(0);
+            app.exit(1); // Use exit code 1 for error
         }
     }
 

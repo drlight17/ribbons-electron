@@ -12,13 +12,19 @@
   "type": "module",
   "icon": "icon.png",
   "main": "./main.js",
-  "version": "0.5.1",
+  "version": "1.0.0-RC1",
   "author": "Yuri Samoilov <root@drlight.fun>",
   "homepage": "https://github.com/drlight17/ribbons-electron",
   "build": {
     "appId": "com.electron.ribbons-electron",
     "productName": "Ribbons screensaver",
+    "artifactName": "Ribbons.screensaver-${version}.${ext}",
     "asar": true,
+    "publish": {
+      "provider": "github",
+      "owner": "drlight17",
+      "repo": "ribbons-electron"
+    },
     "nsis": {
       "oneClick": true,
       "perMachine": true,
@@ -29,20 +35,12 @@
       "perMachine": true
     },
     "mac": {
+      "category": "public.app-category.entertainment",
+      "artifactName": "Ribbons.screensaver-${version}-mac-${arch}.${ext}",
       "icon": "icon.icns",
       "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "arm64"
-          ]
-        },
-        {
-          "target": "dmg",
-          "arch": [
-            "x64"
-          ]
-        }
+        { "target": "dmg", "arch": ["arm64", "x64"] },
+        { "target": "zip", "arch": ["arm64", "x64"] }
       ],
       "asarUnpack": [
         "./icon.png",
@@ -52,24 +50,9 @@
     "win": {
       "icon": "icon.ico",
       "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "msi",
-          "arch": [
-            "x64"
-          ]
-        }
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "zip", "arch": ["x64"] },
+        { "target": "msi", "arch": ["x64"] }
       ],
       "asarUnpack": [
         "./icon.ico",
@@ -81,30 +64,10 @@
       "category": "Multimedia",
       "syncDesktopName": true,
       "target": [
-        {
-          "target": "AppImage",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "tar.gz",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "deb",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "rpm",
-          "arch": [
-            "x64"
-          ]
-        }
+        { "target": "tar.gz", "arch": ["x64"] },
+        { "target": "deb", "arch": ["x64"] },
+        { "target": "rpm", "arch": ["x64"] },
+        { "target": "AppImage", "arch": ["x64"] }
       ],
       "asarUnpack": [
         "./icon.png",
@@ -129,8 +92,8 @@
     "@deepfocus/get-windows": "latest",
     "@electron/packager": "latest",
     "dbus-next": "latest",
-    "electron-audio-loopback": "latest",
     "electron-fetch": "latest",
+    "electron-native-screenshare": "latest",
     "electron-prompt": "latest",
     "electron-store": "latest",
     "node-desktop-idle-v2": "latest",
