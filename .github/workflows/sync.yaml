@@ -1,0 +1,44 @@
+name: Sync Files to Landing Repo
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'ribbons.js'
+      - 'ribbons_modern.js'
+
+jobs:
+  sync-files:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Repo
+        uses: actions/checkout@v4
+
+      - name: Checkout Destination Repo
+        uses: actions/checkout@v4
+        with:
+          repository: 'drlight17/ribbons-electron-landing'
+          path: 'landing-repo'
+          token: ${{ secrets.SYNC_REPO_TOKEN }}
+
+      - name: Copy Files and Push Changes
+        run: |
+          # Копируем обновленные файлы в целевой репозиторий
+          cp ribbons.js landing-repo/ribbons.js
+          cp ribbons_modern.js landing-repo/ribbons_modern.js
+          
+          cd landing-repo
+          
+          # Настраиваем профиль Git для коммита
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # Проверяем, есть ли реальные изменения в файлах
+          if [ -n "$(git status --porcelain)" ]; then
+            git add ribbons.js ribbons_modern.js
+            git commit -m "chore: auto-sync ribbons files from main repository"
+            git push origin main
+          else
+            echo "No changes detected. Skipping synchronization."
+          fi
