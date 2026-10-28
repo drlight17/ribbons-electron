@@ -1,6 +1,7 @@
 name: Sync Files to Landing Repo
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
