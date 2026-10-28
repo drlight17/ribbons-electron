@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ribbons — settings</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="settings" data-theme="dark">
+  <div id="app">
+    <section class="preview-wrap">
+      <div class="preview-bar">
+        <span class="badge modern" id="liveBadge">MODERN · LIVE</span>
+      </div>
+      <div id="preview" class="preview-stage dark darkGradient" aria-label="Ribbons preview">
+        <div class="datetime-container hidden">
+          <div class="date" id="currentDate"></div>
+          <div class="time" id="currentTime"></div>
+        </div>
+      </div>
+    </section>
+    <aside class="side">
+      <div class="side-scroll">
+        <!-- Locale / Theme -->
+        <div class="group">
+          <h2 data-i18n="group_locale">Language & UI theme</h2>
+          <div class="locale-row">
+            <button type="button" class="locale-btn active" data-locale="ru" id="localeRu">RU</button>
+            <button type="button" class="locale-btn" data-locale="en" id="localeEn">EN</button>
+          </div>
+          <div class="row">
+            <label for="ui_theme" data-i18n="ui_theme">UI theme</label>
+            <select id="ui_theme">
+              <option value="auto" data-i18n="auto">Auto</option>
+              <option value="light" data-i18n="light">Light</option>
+              <option value="dark" selected data-i18n="dark">Dark</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Engine -->
+        <div class="group">
+          <h2 data-i18n="group_engine">Engine</h2>
+          <div class="engine-tabs" role="tablist">
+            <button type="button" class="engine-tab active" data-engine="modern" id="tabModern">
+              🛸 <span data-i18n="modern">Modern</span>
+            </button>
+            <button type="button" class="engine-tab" data-engine="classic" id="tabClassic">
+              🎩 <span data-i18n="classic">Classic</span>
+            </button>
+          </div>
+          <input type="hidden" id="engine" value="modern" />
+        </div>
+
+        <!-- Background / theme -->
+        <div class="group">
+          <h2 data-i18n="group_background">Background & theme</h2>
+          <div class="row engine-only" data-engine="modern">
+            <label for="backgroundMode" data-i18n="backgroundMode">Background</label>
+            <select id="backgroundMode">
+              <option value="auto" data-i18n="auto">Auto</option>
+              <option value="transparent" data-i18n="transparent">Fully transparent</option>
+              <option value="glass" data-i18n="glass">Blurred glass</option>
+              <option value="lightGradient" data-i18n="lightGradient">Light gradient</option>
+              <option value="light" data-i18n="light">Light</option>
+              <option value="dark" data-i18n="dark">Dark</option>
+              <option value="darkGradient" selected data-i18n="darkGradient">Dark gradient</option>
+            </select>
+          </div>
+          <label class="check-row" id="stretchedModeRow">
+            <input type="checkbox" id="stretched_mode" />
+            <span data-i18n="stretched_mode">Stretch over all displays</span>
+          </label>
+          <div class="row" id="displaysModeRow">
+            <label for="displays_mode" data-i18n="selected_displays">Select displays</label>
+            <select id="displays_mode">
+              <option value="all" data-i18n="use_all_displays">Use all displays</option>
+              <option value="custom" data-i18n="use_selected_displays">Use selected displays</option>
+            </select>
+          </div>
+          <div id="displaysList" class="displays-list" hidden></div>
+        </div>
+
+        <!-- Color -->
+        <div class="group">
+          <h2 data-i18n="group_color">Ribbon color</h2>
+          <div class="row">
+            <label for="singleColorMode" data-i18n="rib_color">Ribbons color</label>
+            <select id="singleColorMode">
+              <option value="false" data-i18n="rndm_col">Random</option>
+              <option value="667" data-i18n="tricolor">Tricolor edition</option>
+              <option value="666" data-i18n="grey">Grey</option>
+              <option value="360" data-i18n="red">Red</option>
+              <option value="60" data-i18n="yellow">Yellow</option>
+              <option value="120" data-i18n="green">Green</option>
+              <option value="180" data-i18n="cyan">Cyan</option>
+              <option value="240" data-i18n="blue">Blue</option>
+              <option value="300" data-i18n="magenta">Magenta</option>
+              <option value="custom" data-i18n="custom">Custom</option>
+            </select>
+          </div>
+          <div class="row custom-hue-row" id="customHueRow">
+            <label data-i18n="custom_hue">Custom hue (0–360)</label>
+            <span class="value" id="singleColorCustomVal">200°</span>
+            <input type="hidden" id="singleColorCustom" value="200" />
+            <div class="hue-picker" id="huePicker">
+              <canvas id="hueCanvas" width="280" height="28" aria-label="Hue spectrum"></canvas>
+              <div class="hue-cursor" id="hueCursor"></div>
+              <div class="hue-preview" id="huePreview"></div>
+            </div>
+          </div>
+          <div class="row engine-only" data-engine="classic">
+            <label for="colorCycleSpeed" data-i18n="colorCycleSpeed">Ribbon color cycle speed</label>
+            <select id="colorCycleSpeed">
+              <option value="1" data-i18n="slow">Slow</option>
+              <option value="3" selected data-i18n="normal">Normal</option>
+              <option value="10" data-i18n="fast">Fast</option>
+              <option value="20" data-i18n="v_fast">Very fast</option>
+            </select>
+            <p class="hint" data-i18n="hint_colorCycleSpeed">Only with random color (classic)</p>
+          </div>
+        </div>
+
+        <!-- Count & speed -->
+        <div class="group">
+          <h2 data-i18n="group_count">Count & speed</h2>
+          <div class="row">
+            <label for="ribbonCount" data-i18n="ribbonCount">Max visible ribbons</label>
+            <span class="value" id="ribbonCountVal">5</span>
+            <input type="range" id="ribbonCount" min="1" max="12" step="1" value="5" />
+            <p class="hint" data-i18n="hint_ribbonCount">Menu: 3 / 5 / 7 / 9 · tricolor usually 3</p>
+          </div>
+          <div class="row">
+            <label for="horizontalSpeed" data-i18n="horizontalSpeed">Draw speed</label>
+            <span class="value" id="horizontalSpeedVal">1.5×</span>
+            <input type="range" id="horizontalSpeed" min="0.3" max="3" step="0.1" value="1.5" />
+          </div>
+        </div>
+
+        <!-- Modern-only visuals -->
+        <div class="group engine-only" data-engine="modern">
+          <h2 data-i18n="group_modern_look">Modern — look</h2>
+          <label class="check-row">
+            <input type="checkbox" id="endless" />
+            <span data-i18n="endless">Endless ribbons</span>
+          </label>
+          <div class="row">
+            <label for="opacity" data-i18n="opacity">Transparency of ribbons</label>
+            <span class="value" id="opacityVal">100%</span>
+            <input type="range" id="opacity" min="5" max="100" step="1" value="100" />
+            <p class="hint" data-i18n="hint_opacity">Menu: 100 / 70 / 5</p>
+          </div>
+          <div class="row">
+            <label for="glow" data-i18n="glow">Ribbons glow effect</label>
+            <span class="value" id="glowVal">66</span>
+            <input type="range" id="glow" min="0" max="200" step="1" value="66" />
+          </div>
+        </div>
+
+        <div class="group engine-only" data-engine="modern">
+          <h2 data-i18n="group_length">Ribbon length</h2>
+          <div class="pair">
+            <div class="row">
+              <label for="minLength" data-i18n="label_min">Min</label>
+              <span class="value" id="minLengthVal">1.0</span>
+              <input type="range" id="minLength" min="0.1" max="6" step="0.1" value="1" />
+            </div>
+            <div class="row">
+              <label for="maxLength" data-i18n="label_max">Max</label>
+              <span class="value" id="maxLengthVal">3.0</span>
+              <input type="range" id="maxLength" min="0.1" max="6" step="0.1" value="3" />
+            </div>
+          </div>
+        </div>
+
+        <div class="group engine-only" data-engine="modern">
+          <h2 data-i18n="group_width">Width (px)</h2>
+          <div class="pair">
+            <div class="row">
+              <label for="minWidth" data-i18n="label_min">Min</label>
+              <span class="value" id="minWidthVal">10</span>
+              <input type="range" id="minWidth" min="1" max="60" step="1" value="10" />
+            </div>
+            <div class="row">
+              <label for="maxWidth" data-i18n="label_max">Max</label>
+              <span class="value" id="maxWidthVal">30</span>
+              <input type="range" id="maxWidth" min="1" max="80" step="1" value="30" />
+            </div>
+          </div>
+        </div>
+
+        <div class="group engine-only" data-engine="modern">
+          <h2 data-i18n="group_curl">Curl</h2>
+          <div class="pair">
+            <div class="row">
+              <label for="minCurl" data-i18n="label_min">Min</label>
+              <span class="value" id="minCurlVal">0.35</span>
+              <input type="range" id="minCurl" min="0" max="2.5" step="0.05" value="0.35" />
+            </div>
+            <div class="row">
+              <label for="maxCurl" data-i18n="label_max">Max</label>
+              <span class="value" id="maxCurlVal">1.00</span>
+              <input type="range" id="maxCurl" min="0" max="2.5" step="0.05" value="1" />
+            </div>
+          </div>
+          <div class="row">
+            <label for="curlAmplitude" data-i18n="curlAmplitude">Amplitude</label>
+            <span class="value" id="curlAmplitudeVal">0.22</span>
+            <input type="range" id="curlAmplitude" min="0" max="0.45" step="0.01" value="0.22" />
+          </div>
+        </div>
+
+        <div class="group engine-only" data-engine="modern">
+          <h2 data-i18n="group_twist">Twist</h2>
+          <div class="pair">
+            <div class="row">
+              <label for="minTwist" data-i18n="label_min">Min</label>
+              <span class="value" id="minTwistVal">0.00</span>
+              <input type="range" id="minTwist" min="0" max="2" step="0.05" value="0" />
+            </div>
+            <div class="row">
+              <label for="maxTwist" data-i18n="label_max">Max</label>
+              <span class="value" id="maxTwistVal">1.00</span>
+              <input type="range" id="maxTwist" min="0" max="2" step="0.05" value="1" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Classic extras -->
+        <div class="group engine-only" data-engine="classic">
+          <h2 data-i18n="group_classic">Classic — details</h2>
+          <div class="row">
+            <label for="colorSaturation" data-i18n="saturation">Saturation</label>
+            <span class="value" id="colorSaturationVal">60%</span>
+            <input type="range" id="colorSaturation" min="0" max="100" step="1" value="60" />
+          </div>
+          <div class="row">
+            <label for="colorBrightness" data-i18n="brightness">Brightness</label>
+            <span class="value" id="colorBrightnessVal">50%</span>
+            <input type="range" id="colorBrightness" min="10" max="90" step="1" value="50" />
+          </div>
+          <div class="row">
+            <label for="colorAlpha" data-i18n="alpha">Fill alpha</label>
+            <span class="value" id="colorAlphaVal">1.00</span>
+            <input type="range" id="colorAlpha" min="0.1" max="1" step="0.05" value="1" />
+          </div>
+          <div class="row">
+            <label for="verticalPosition" data-i18n="verticalPosition">Vertical start</label>
+            <select id="verticalPosition">
+              <option value="random" data-i18n="vpos_random">Random</option>
+              <option value="top" data-i18n="vpos_top">Top</option>
+              <option value="center" data-i18n="vpos_center">Center</option>
+              <option value="bottom" data-i18n="vpos_bottom">Bottom</option>
+            </select>
+          </div>
+          <div class="row">
+            <label for="parallaxAmount" data-i18n="parallax">Parallax</label>
+            <span class="value" id="parallaxAmountVal">-0.30</span>
+            <input type="range" id="parallaxAmount" min="-1" max="1" step="0.05" value="-0.3" />
+          </div>
+          <div class="row">
+            <label for="strokeSize" data-i18n="stroke">Stroke</label>
+            <span class="value" id="strokeSizeVal">1</span>
+            <input type="range" id="strokeSize" min="0" max="8" step="1" value="1" />
+          </div>
+          <div class="row">
+            <label for="ribbonBlur" data-i18n="blur">Blur</label>
+            <span class="value" id="ribbonBlurVal">30</span>
+            <input type="range" id="ribbonBlur" min="0" max="80" step="1" value="30" />
+          </div>
+          <label class="check-row">
+            <input type="checkbox" id="animateSections" checked />
+            <span data-i18n="animateSections">Animate sections</span>
+          </label>
+        </div>
+
+        <!-- DateTime -->
+        <div class="group">
+          <h2 data-i18n="group_datetime">Date & time</h2>
+          <label class="check-row">
+            <input type="checkbox" id="show_datetime" />
+            <span data-i18n="show_datetime">Show date and time</span>
+          </label>
+          <label class="check-row">
+            <input type="checkbox" id="datetime_front" />
+            <span data-i18n="datetime_front">Show on top</span>
+          </label>
+          <label class="check-row">
+            <input type="checkbox" id="randomize_datetime_pos" />
+            <span data-i18n="randomize_datetime_pos">Randomize position</span>
+          </label>
+          <div class="row" id="datetimePosRow">
+            <label for="datetime_pos" data-i18n="datetime_pos">Fixed position</label>
+            <select id="datetime_pos">
+              <option value="center" selected data-i18n="pos_center">Center</option>
+              <option value="top-left" data-i18n="pos_top_left">Top left</option>
+              <option value="top-right" data-i18n="pos_top_right">Top right</option>
+              <option value="bottom-left" data-i18n="pos_bottom_left">Bottom left</option>
+              <option value="bottom-right" data-i18n="pos_bottom_right">Bottom right</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Behaviour / system -->
+        <div class="group">
+          <h2 data-i18n="group_behaviour">Behaviour</h2>
+          <div class="row">
+            <label for="idle_time" data-i18n="max_idle">Max idle time</label>
+            <span class="value" id="idle_timeVal">1 min</span>
+            <input type="range" id="idle_time" min="5" max="3600" step="1" value="60" />
+          </div>
+          <label class="check-row">
+            <input type="checkbox" id="media_detect" />
+            <span data-i18n="media_detect">Media detection</span>
+          </label>
+          <label class="check-row">
+            <input type="checkbox" id="fullscreen_detect" />
+            <span data-i18n="fullscreen_detect">Fullscreen apps detection</span>
+          </label>
+          <label class="check-row">
+            <input type="checkbox" id="user_activity" />
+            <span data-i18n="user_activity">User activity detection</span>
+          </label>
+        </div>
+
+        <div class="group">
+          <h2 data-i18n="group_system">System</h2>
+          <label class="check-row">
+            <input type="checkbox" id="hw_acc" />
+            <span data-i18n="hw_acc">Hardware acceleration</span>
+          </label>
+          <label class="check-row">
+            <input type="checkbox" id="run_at_startup" />
+            <span data-i18n="run_at_startup">Run app at startup</span>
+          </label>
+          <label class="check-row">
+            <input type="checkbox" id="logging" />
+            <span data-i18n="logging">Write log file</span>
+          </label>
+          <button type="button" class="btn ghost" id="btnOpenLog" data-i18n="logging_open">Open log file</button>
+        </div>
+      </div>
+      <div class="side-actions">
+        <button type="button" class="btn ghost" id="btnCancel" data-i18n="btn_cancel">Reset</button>
+        <button type="button" class="btn ghost" id="btnReset" data-i18n="btn_reset">Reset</button>
+        <button type="button" class="btn ghost" id="btnPause" data-i18n="pause">Pause</button>
+        <button type="button" class="btn primary" id="btnApply" data-i18n="btn_apply">Save</button>
+      </div>
+      <div class="status" id="status"></div>
+    </aside>
+  </div>
+  <script type="module" src="settings.js"></script>
+</body>
+</html>

@@ -2,16 +2,16 @@
 /**
  * Ribbons Class File.
  * Creates low-poly ribbons background effect inside a target container.
+ *
+ * Background is painted on a dedicated canvas (same approach as RibbonsModern).
+ * backgroundMode: "dark" | "light" | "darkGradient" | "lightGradient" | "transparent"
  */
 const Ribbons = (function (name, factory) {
     "use strict";
-
     const result = factory();
-
     if (typeof window === "object") {
         window[name] = result;
     }
-
     return result;
 })("Ribbons", function () {
     
@@ -157,13 +157,21 @@ const Ribbons = (function (name, factory) {
             glow: 10,
             // single color default is off (random ribbons colors)
             singleColor: false,
-            // background painted on dedicated canvas (below datetime)
-            // dark | light | darkGradient | lightGradient
+            /**
+             * Background backgroundMode — painted on dedicated bg canvas (same as RibbonsModern).
+             *   "dark"          — solid black
+             *   "light"         — solid white
+             *   "darkGradient"  — radial dark blue gradient
+             *   "lightGradient" — radial light gray gradient
+             *   "transparent"   — no fill (for glasstron / acrylic blur)
+             *
+             */
             backgroundMode: "dark"
         };
         this._onDraw = this._onDraw.bind(this);
         this._onResize = this._onResize.bind(this);
         this._onScroll = this._onScroll.bind(this);
+        this._destroyed = false;
         this.setOptions(options);
         this.init();
     };
@@ -177,11 +185,32 @@ const Ribbons = (function (name, factory) {
             
             if (typeof options === "object") {
                 for (key in options) {
-                    if (options.hasOwnProperty(key)) {
+                    if (Object.prototype.hasOwnProperty.call(options, key)) {
                         this._options[key] = options[key];
                     }
                 }
             }
+            // horizontalSpeed: tray strings or modern-style multiplier (0.3–3)
+            // Classic engine uses pixel step (~150). Map small multipliers up.
+            var SPEED_MAP = { slow: 80, normal: 150, fast: 220, v_fast: 300 };
+            var hs = this._options.horizontalSpeed;
+            if (typeof hs === "string" && SPEED_MAP[hs] != null) {
+                this._options.horizontalSpeed = SPEED_MAP[hs];
+            } else {
+                hs = Number(hs);
+                if (Number.isFinite(hs) && hs > 0 && hs <= 10) {
+                    // multiplier from settings slider → pixel speed
+                    this._options.horizontalSpeed = Math.round(hs * 100);
+                } else if (!Number.isFinite(hs) || hs <= 0) {
+                    this._options.horizontalSpeed = 150;
+                }
+            }
+            // delay / phase: if missing, derive from approximate speed
+            var px = Number(this._options.horizontalSpeed) || 150;
+            var mult = Math.max(0.3, Math.min(3, px / 100));
+            var t = (mult - 0.3) / (3 - 0.3);
+            if (this._options.delay == null) this._options.delay = 6.5 - t * 5;
+            if (this._options.phase == null) this._options.phase = 0.005 + t * 0.065;
         },
         _styleLayer: function (el, zIndex) {
             el.style.display = "block";
@@ -198,7 +227,6 @@ const Ribbons = (function (name, factory) {
             el.style.pointerEvents = "none";
             el.style.background = "transparent";
         },
-
         /**
          * Background on its own canvas (z-index -2).
          * Ribbons canvas stays transparent at z-index 0 so
@@ -210,35 +238,44 @@ const Ribbons = (function (name, factory) {
             if (!ctx) return;
             var W = this._width;
             var H = this._height;
-            var mode = this._options.backgroundMode;
-            // Also respect body.light if mode not set explicitly
-            if ((!mode || mode === "dark") && document.body && document.body.classList.contains("light")) {
-                mode = "light";
-            }
+            var mode = this._options.backgroundMode || "dark";
+
             ctx.clearRect(0, 0, W, H);
+
+            // Transparent — leave canvas fully clear for glasstron / acrylic blur
+            if (mode === "transparent" || mode === "glass" ) {
+                return;
+            }
+
             if (mode === "light") {
                 ctx.fillStyle = "#ffffff";
                 ctx.fillRect(0, 0, W, H);
             } else if (mode === "lightGradient") {
-                var bgL = ctx.createRadialGradient(W * 0.5, H * 0.42, 0, W * 0.5, H * 0.48, Math.max(W, H) * 0.78);
+                var bgL = ctx.createRadialGradient(
+                    W * 0.5, H * 0.42, 0,
+                    W * 0.5, H * 0.48, Math.max(W, H) * 0.78
+                );
                 bgL.addColorStop(0, "#e9edf4");
                 bgL.addColorStop(0.48, "#c6cfde");
                 bgL.addColorStop(1, "#8998b0");
                 ctx.fillStyle = bgL;
                 ctx.fillRect(0, 0, W, H);
             } else if (mode === "darkGradient") {
-                var bg = ctx.createRadialGradient(W * 0.5, H * 0.48, 0, W * 0.5, H * 0.48, Math.max(W, H) * 0.75);
+                var bg = ctx.createRadialGradient(
+                    W * 0.5, H * 0.48, 0,
+                    W * 0.5, H * 0.48, Math.max(W, H) * 0.75
+                );
                 bg.addColorStop(0, "#111b39");
                 bg.addColorStop(0.55, "#080d1c");
                 bg.addColorStop(1, "#03050c");
                 ctx.fillStyle = bg;
                 ctx.fillRect(0, 0, W, H);
             } else {
+                // "dark" and any unknown value
                 ctx.fillStyle = "#000000";
                 ctx.fillRect(0, 0, W, H);
             }
         },
-
         // Initialize the ribbons effect
         init: function () {
             try {
@@ -246,17 +283,14 @@ const Ribbons = (function (name, factory) {
                 this._bgCanvas = document.createElement("canvas");
                 this._bgCanvas.className = "ribbons-bg-canvas";
                 this._styleLayer(this._bgCanvas, -2);
-
                 this._canvas = document.createElement("canvas");
                 this._canvas.className = "ribbons-canvas";
                 this._styleLayer(this._canvas, 0);
-
                 this._onResize();
                 this._bgContext = this._bgCanvas.getContext("2d");
                 this._context = this._canvas.getContext("2d");
                 this._context.globalAlpha = this._options.colorAlpha;
                 this._drawBackground();
-
                 window.addEventListener("resize", this._onResize);
                 window.addEventListener("scroll", this._onScroll);
                 document.body.appendChild(this._bgCanvas);
@@ -291,7 +325,6 @@ const Ribbons = (function (name, factory) {
             } else if (/^(bottom|max)$/i.test(this._options.verticalPosition)) {
                 starty = this._height - hide;
             }
-            //console.log(this._options.singleColor)
             // ribbon sections data
             // tricolor
             if (this._options.singleColor === 667 ) {
@@ -309,8 +342,6 @@ const Ribbons = (function (name, factory) {
                 point1 = new Point(startx, starty),
                 point2 = new Point(startx, starty),
                 point3 = null,
-                //color = this._options.singleColor ? this._options.singleColor : Math.round(random(0, 360)),
-                //color = Math.round(random(0, 360)),
                 // randomize delay between each ribbon appearance
                 delay = Math.random() * 4;
             // buils ribbon sections
@@ -328,7 +359,6 @@ const Ribbons = (function (name, factory) {
                     point3.subtract(movex, movey);
                     if (point2.x <= min) break;
                 }
-                // point3.clampY( 0, this._height );
                 ribbon.push({ // single ribbon section
                     point1: new Point(point1.x, point1.y),
                     point2: new Point(point2.x, point2.y),
@@ -341,9 +371,6 @@ const Ribbons = (function (name, factory) {
                 });
                 point1.copy(point2);
                 point2.copy(point3);
-                // affects ribbon appear speed
-                //delay += 4;
-                //delay += 0.2;
                 delay += this._options.delay;
                 color += this._options.colorCycleSpeed;
                 
@@ -360,8 +387,6 @@ const Ribbons = (function (name, factory) {
                     return true; // done
                 }
                 if (section.delay <= 0) {
-                    // section.phase affects animation speed 
-                    //section.phase += 0.014;
                     section.phase += this._options.phase;
                     section.alpha = Math.sin(section.phase) * 1;
                     section.alpha = (section.alpha <= 0) ? 0 : section.alpha;
@@ -393,9 +418,7 @@ const Ribbons = (function (name, factory) {
                     var s = this._options.colorSaturation;
                     var l = this._options.colorBrightness;
                 }
-                var //s = this._options.colorSaturation,
-                    //l = this._options.colorBrightness,
-                    c = "hsla(" + section.color + ", " + s + ", " + l + ", " + section.alpha + " )";
+                var c = "hsla(" + section.color + ", " + s + ", " + l + ", " + section.alpha + " )";
                 this._context.save();
                 if (this._options.parallaxAmount !== 0) {
                     this._context.translate(0, this._scroll * this._options.parallaxAmount);
@@ -421,12 +444,14 @@ const Ribbons = (function (name, factory) {
         },
         // Draw ribbons
         _onDraw: function () {
+            if (this._destroyed) return;
             for (var i = 0; i < this._ribbons.length; ++i) {                
                 if (!this._ribbons[i]) {
                     this._ribbons.splice(i, 1);
                     i--;
                 }
             }
+            if (!this._context || !this._canvas) return;
             
             this._drawBackground();
             this._context.clearRect(0, 0, this._width, this._height);
@@ -451,15 +476,19 @@ const Ribbons = (function (name, factory) {
             while (this._ribbons.length < this._options.ribbonCount) {
                 this.addRibbon();
             }
-            // AnimationId is set by controller.js (global)
+            // Reuse pre-bound _onDraw (constructor) — do NOT .bind() every frame
+            var raf = requestAnimationFrame(this._onDraw);
+            this._raf = raf;
+            if (typeof window !== 'undefined') {
+                window.AnimationId = raf;
+            }
             if (typeof AnimationId !== 'undefined') {
-                AnimationId = requestAnimationFrame(this._onDraw.bind(this));
-            } else {
-                requestAnimationFrame(this._onDraw.bind(this));
+                AnimationId = raf;
             }
         },
         // Update container size info
         _onResize: function(e) {
+            if (this._destroyed) return;
             var screen = screenInfo(e);
             this._width = screen.width;
             this._height = screen.height;
@@ -478,13 +507,41 @@ const Ribbons = (function (name, factory) {
         },
         // Update container size info
         _onScroll: function(e) {
+            if (this._destroyed) return;
             var screen = screenInfo(e);
             this._scroll = screen.scrolly;
+        },
+        /** Full teardown — required when settings preview restarts classic often */
+        destroy: function () {
+            this._destroyed = true;
+            if (this._raf != null) {
+                cancelAnimationFrame(this._raf);
+                this._raf = null;
+            }
+            try {
+                cancelAnimationFrame(window.AnimationId);
+            } catch (_) {}
+            try {
+                if (typeof AnimationId !== 'undefined') {
+                    cancelAnimationFrame(AnimationId);
+                }
+            } catch (_) {}
+            window.removeEventListener('resize', this._onResize);
+            window.removeEventListener('scroll', this._onScroll);
+            if (this._canvas && this._canvas.parentNode) {
+                this._canvas.parentNode.removeChild(this._canvas);
+            }
+            if (this._bgCanvas && this._bgCanvas.parentNode) {
+                this._bgCanvas.parentNode.removeChild(this._bgCanvas);
+            }
+            this._canvas = null;
+            this._context = null;
+            this._bgCanvas = null;
+            this._bgContext = null;
+            this._ribbons = [];
         },
     };
     // export
     return Factory;
 });
-
-
 export default Ribbons;

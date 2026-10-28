@@ -1,45 +1,31 @@
-body{
-    background-color: rgb(0, 0, 0);
+/*
+ * Background is painted by ribbons engine on a dedicated canvas.
+ * Body classes control only UI chrome (buttons, datetime, logo).
+ * Base body stays transparent / near-black so canvas + glasstron show through.
+ */
+body {
+    background-color: transparent;
+    background-image: none;
     transition: background 0.5s ease-in-out, background-color 0.5s ease-in-out;
     font-family: Arial, sans-serif;
     overflow: hidden;
     user-select: none;
 }
-
-/* Solid themes — classic parity */
-body.dark {
+/* UI theme markers — do NOT paint full-page background (canvas handles that) */
+body.dark,
+body.darkGradient,
+body.transparent {
+    /* no background-color / background-image here */
+}
+body.light,
+body.lightGradient {
+    /* UI-only light theme; page bg comes from canvas */
+}
+/* Fallback when ribbons are not running yet */
+body:not(.transparent) {
     background-color: #000;
-    background-image: none;
 }
-body.light {
-    background-color: white;
-    background-image: none;
-}
-
-/* Gradient themes — used by modern engine (background on body, not canvas) */
-body.darkGradient {
-    background-color: #03050c;
-    background-image: radial-gradient(
-        ellipse at 50% 48%,
-        #111b39 0%,
-        #080d1c 55%,
-        #03050c 100%
-    );
-    background-attachment: fixed;
-}
-body.lightGradient,
-body.light.lightGradient {
-    background-color: #8998b0;
-    background-image: radial-gradient(
-        ellipse at 50% 42%,
-        #e9edf4 0%,
-        #c6cfde 48%,
-        #8998b0 100%
-    );
-    background-attachment: fixed;
-}
-
-span{
+span {
     display: block;
 }
 canvas {
@@ -48,16 +34,13 @@ canvas {
     left: 0px !important;
     width: 100% !important;
     height: 100% !important;
-    /* Transparent canvas so body background + datetime (z-index: -1) show through */
+    /* Transparent canvas so bg-canvas + datetime (z-index: -1) show through */
     background: transparent !important;
 }
 button {
     position: absolute;
-    top: 50px;
-    right: 50px;
     background-color: gray;
     opacity: .3;
-    /*filter: invert(1);*/
     filter: grayscale(100%) contrast(20);
     border-radius: 50%;
     padding: 15px;
@@ -66,8 +49,23 @@ button {
     border: none;
     transition: opacity .5s ease-in-out;
     z-index: 10;
+    /*backdrop-filter: blur(30px);*/
 }
-.light button {
+
+#close-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #111;
+}
+#close-button svg,
+.close-button-extra svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.dark button {
     filter: grayscale(100%) invert(1) contrast(20);
 }
 button:hover {
@@ -79,17 +77,16 @@ button.hidden {
     pointer-events: none;
     transition: opacity .5s ease-in-out;
 }
-.light{
-    background-color: white;
-}
-.light .datetime-container{
+/* Light UI chrome (datetime, logo) */
+.light .datetime-container {
+    /*filter: grayscale(100%) invert(1) contrast(20);*/
     background-color: rgb(191 191 212 / 35%);
     opacity: .5;
 }
-.light .date{
+.light .date {
     color: #333;
 }
-.light .time{
+.light .time {
     color: black;
 }
 .drl-container {
@@ -133,17 +130,18 @@ button.hidden {
     background-color: rgb(191 191 212 / 20%);
     z-index: -1;
     position: absolute;
-    top: 50%;
-    left: 50%;
+    max-height: fit-content;
+    /*top: 50%;
+    left: 50%;*/
     transform: translate(-50%, -50%);
     animation-play-state: running;
 }
 .date {
-    font-size:clamp(1.5rem, 3vw, 6rem);
+    font-size: clamp(1.5rem, 3vw, 6rem);
     color: rgb(255 255 255 / 50%);
 }
 .time {
-    font-size:clamp(2rem, 4vw, 7rem);
+    font-size: clamp(2rem, 4vw, 7rem);
     color: white;
     margin-top: 10px;
 }
@@ -158,7 +156,7 @@ button.hidden {
     animation-fill-mode: forwards;
 }
 .datetime-container.paused {
-  animation-play-state: paused;
+    animation-play-state: paused;
 }
 @keyframes appearDisappear1 {
     0% {
@@ -186,5 +184,565 @@ button.hidden {
     100% {
         opacity: 0;
         transform: scale(0.2);
+    }
+}
+
+/* ==========================================================================
+ * Settings window — scoped under body.settings
+ * Does not affect screensaver page chrome above.
+ * ========================================================================== */
+body.settings {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    user-select: auto;
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--bg, #0b0e16);
+    background-image: none;
+    color: var(--ink, #e8eefc);
+    transition: background 0.2s, color 0.2s;
+}
+
+body.settings,
+body.settings[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0b0e16;
+    --panel: #121826;
+    --panel-2: #181f2e;
+    --ink: #e8eefc;
+    --muted: #8b97b0;
+    --line: #2a3448;
+    --accent: #6b8cff;
+    --accent-2: #4d6ef0;
+    --ok: #3ecf8e;
+    --danger: #ff6b7a;
+    --preview-bg: #050813;
+    --radius: 14px;
+}
+
+body.settings[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f0f2f7;
+    --panel: #ffffff;
+    --panel-2: #f5f7fb;
+    --ink: #1a2233;
+    --muted: #6b7790;
+    --line: #d8dee9;
+    --accent: #4d6ef0;
+    --accent-2: #3b5bdb;
+    --ok: #2a9d6e;
+    --danger: #e5484d;
+    --preview-bg: #e8ecf4;
+}
+
+body.settings *,
+body.settings *::before,
+body.settings *::after {
+    box-sizing: border-box;
+}
+
+body.settings span {
+    display: inline;
+}
+
+body.settings button {
+    position: static;
+    top: auto;
+    right: auto;
+    background-color: transparent;
+    opacity: 1;
+    filter: none;
+    border-radius: 0;
+    padding: 0;
+    outline: none;
+    cursor: pointer;
+    border: none;
+    transition: none;
+    z-index: auto;
+}
+
+body.settings button:hover {
+    opacity: 1;
+}
+
+/* Layout */
+body.settings #app {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    height: 100vh;
+    gap: 0;
+}
+
+body.settings .preview-wrap {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    border-right: 1px solid var(--line);
+}
+
+body.settings .preview-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    flex: none;
+}
+
+body.settings .preview-bar h1 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+body.settings .preview-bar p {
+    margin: 2px 0 0;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+body.settings .badge {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 10px;
+    white-space: nowrap;
+}
+
+body.settings .badge.classic {
+    color: #c4b5fd;
+    border-color: #5b4d8a;
+}
+
+body.settings .badge.modern {
+    color: #7dd3fc;
+    border-color: #2a6f8f;
+}
+
+body.settings[data-theme="light"] .badge.classic {
+    color: #7c3aed;
+    border-color: #c4b5fd;
+}
+
+body.settings[data-theme="light"] .badge.modern {
+    color: #0284c7;
+    border-color: #7dd3fc;
+}
+
+body.settings #preview,
+body.settings .preview-stage {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    /* fallback only; engine paints bg canvas like screensaver */
+    background: transparent;
+    overflow: hidden;
+    /* stacking context so datetime z-index:-1 / .front:4 work vs ribbons canvas */
+    isolation: isolate;
+    z-index: 0;
+}
+
+/* Mirror controller applyBodyTheme on the stage (not whole settings page) */
+body.settings .preview-stage.dark,
+body.settings .preview-stage.darkGradient,
+body.settings .preview-stage.transparent,
+body.settings .preview-stage.glass {
+    /* UI chrome inside stage */
+}
+body.settings .preview-stage.light .date,
+body.settings .preview-stage.lightGradient .date {
+    color: rgb(30 40 60 / 55%);
+}
+body.settings .preview-stage.light .time,
+body.settings .preview-stage.lightGradient .time {
+    color: #1a2438;
+}
+body.settings .preview-stage.light .datetime-container,
+body.settings .preview-stage.lightGradient .datetime-container {
+    background-color: rgb(40 50 70 / 12%);
+}
+
+body.settings #preview canvas,
+body.settings .preview-stage canvas {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+    pointer-events: none;
+    background: transparent !important;
+}
+
+/* Datetime in preview — same z-index rules as screensaver (global .datetime-container).
+ * Only scale typography for the smaller stage. */
+body.settings #preview .datetime-container {
+    padding: 10px 14px;
+    pointer-events: none;
+    max-width: 90%;
+    /* z-index: -1 default / .front → 4 — from global stylesheet */
+}
+body.settings #preview .date {
+    font-size: clamp(0.7rem, 1.6vw, 1.1rem);
+}
+body.settings #preview .time {
+    font-size: clamp(1rem, 2.4vw, 1.6rem);
+    margin-top: 4px;
+}
+
+body.settings .side {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--panel);
+}
+
+body.settings .side-scroll {
+    flex: 1;
+    overflow: auto;
+    padding: 12px 14px 18px;
+}
+
+body.settings .side-actions {
+    flex: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 14px;
+    border-top: 1px solid var(--line);
+    background: var(--panel-2);
+}
+
+body.settings .group {
+    margin-bottom: 14px;
+    padding: 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+}
+
+body.settings .group h2 {
+    margin: 0 0 10px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+}
+
+body.settings .group[hidden],
+body.settings .engine-only[hidden] {
+    display: none !important;
+}
+
+body.settings .row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+body.settings .row:last-child {
+    margin-bottom: 0;
+}
+
+body.settings .row label {
+    font-size: 12px;
+    color: var(--ink);
+}
+
+body.settings .row .hint,
+body.settings .hint {
+    grid-column: 1 / -1;
+    font-size: 10px;
+    color: var(--muted);
+    margin: 4px 0 0;
+}
+
+body.settings .value {
+    font-size: 11px;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    min-width: 48px;
+    text-align: right;
+}
+
+body.settings input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+    grid-column: 1 / -1;
+}
+
+body.settings select,
+body.settings input[type="checkbox"] {
+    accent-color: var(--accent);
+}
+
+body.settings select {
+    width: 100%;
+    grid-column: 1 / -1;
+    background: var(--bg);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 7px 10px;
+    font: inherit;
+    font-size: 12px;
+}
+
+body.settings .check-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+
+body.settings .check-row:last-child {
+    margin-bottom: 0;
+}
+
+body.settings .btn {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    transition: filter 0.15s, background 0.15s;
+    position: static;
+    opacity: 1;
+    margin-right: 5px;
+    max-width: fit-content;
+    filter: none;
+    z-index: auto;
+}
+
+body.settings .btn:disabled {
+    background-color: #cccccc;
+    color: #666666;
+    /*cursor: not-allowed;*/
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+body.settings .btn:hover:not(:disabled) {
+    filter: brightness(1.12);
+    opacity: 1;
+}
+
+body.settings .btn.primary {
+    background: var(--accent-2);
+    border-color: var(--accent-2);
+    color: #fff;
+}
+
+body.settings .btn.ghost:hover:not(:disabled) {
+    background: #ffffff10;
+}
+
+body.settings[data-theme="light"] .btn.ghost:hover:not(:disabled) {
+    background: #0000000c;
+}
+
+body.settings .pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+body.settings .pair .row {
+    margin-bottom: 0;
+}
+
+body.settings .status {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    min-height: 16px;
+    padding: 0 14px 10px;
+    background: var(--panel-2);
+}
+
+body.settings .status.saved {
+    color: var(--ok);
+}
+
+body.settings .engine-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+body.settings .engine-tab {
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--muted);
+    border-radius: 10px;
+    padding: 10px 8px;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    text-align: center;
+    position: static;
+    opacity: 1;
+    filter: none;
+    z-index: auto;
+}
+
+body.settings .engine-tab:hover {
+    opacity: 1;
+}
+
+body.settings .engine-tab.active {
+    color: #fff;
+    background: var(--accent-2);
+    border-color: var(--accent-2);
+}
+
+body.settings .locale-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+body.settings .locale-btn {
+    flex: 1;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--muted);
+    border-radius: 8px;
+    padding: 6px 8px;
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    position: static;
+    opacity: 1;
+    filter: none;
+    z-index: auto;
+}
+
+body.settings .locale-btn:hover {
+    opacity: 1;
+}
+
+body.settings .locale-btn.active {
+    color: #fff;
+    background: var(--accent-2);
+    border-color: var(--accent-2);
+}
+
+
+body.settings .displays-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 8px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+
+body.settings .displays-list[hidden] {
+    display: none !important;
+}
+
+body.settings .display-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+
+body.settings .display-item input:disabled + span {
+    opacity: 0.5;
+}
+
+body.settings .check-row input:disabled + span,
+body.settings select:disabled {
+    opacity: 0.5;
+}
+
+
+
+
+
+
+body.settings .custom-hue-row.is-disabled {
+    opacity: 0.45;
+    pointer-events: none;
+}
+body.settings .custom-hue-row.is-disabled .hue-swatch {
+    cursor: not-allowed;
+}
+
+
+body.settings .hue-picker {
+    grid-column: 1 / -1;
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 36px;
+    gap: 8px;
+    align-items: center;
+    margin-top: 6px;
+}
+body.settings .hue-picker canvas {
+    position: relative !important;
+    width: 100% !important;
+    height: 28px !important;
+    border-radius: 8px;
+    cursor: crosshair;
+    display: block;
+    touch-action: none;
+    border: 1px solid var(--line);
+    inset: auto !important;
+    top: auto !important;
+    left: auto !important;
+    background: transparent !important;
+}
+body.settings .hue-cursor {
+    position: absolute;
+    top: 0;
+    width: 4px;
+    height: 28px;
+    margin-left: -2px;
+    background: #fff;
+    border: 1px solid #000;
+    border-radius: 2px;
+    pointer-events: none;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.5);
+}
+body.settings .hue-preview {
+    width: 36px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: hsl(200 85% 55%);
+}
+body.settings .custom-hue-row.is-disabled {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
+@media (max-width: 900px) {
+    body.settings #app {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(200px, 36vh) 1fr;
+    }
+    body.settings .preview-wrap {
+        border-right: none;
+        border-bottom: 1px solid var(--line);
     }
 }

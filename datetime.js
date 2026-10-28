@@ -22,6 +22,55 @@ export function showDateTime() {
     document.getElementsByClassName('datetime-container')[0].classList.remove('hidden');
 }
 
+/**
+ * Fixed placement (non-random). position:
+ *   "center" | "top-left" | "top-right" | "bottom-left" | "bottom-right"
+ * Clears appear/disappear animation classes.
+ */
+export function setFixedPosition(position, pad) {
+    const element = document.getElementsByClassName('datetime-container')[0];
+    if (!element) return;
+
+    element.classList.remove('appear-disappear-1', 'appear-disappear-2');
+    element.style.removeProperty('--dur');
+
+    const p = pad != null ? pad : 24;
+    element.style.margin = '0';
+    element.style.top = '';
+    element.style.left = '';
+    element.style.right = '';
+    element.style.bottom = '';
+    element.style.transform = 'none';
+
+    switch (position) {
+        case 'top-left':
+            element.style.top = p + 'px';
+            element.style.left = p + 'px';
+            break;
+        case 'top-right':
+            element.style.top = p + 'px';
+            element.style.right = p + 'px';
+            break;
+        case 'bottom-left':
+            element.style.bottom = p + 'px';
+            element.style.left = p + 'px';
+            break;
+        case 'bottom-right':
+            element.style.bottom = p + 'px';
+            element.style.right = p + 'px';
+            break;
+        case 'center':
+        default:
+            element.style.top = '50%';
+            element.style.left = '50%';
+            element.style.transform = 'translate(-50%, -50%)';
+            break;
+    }
+
+    showDateTime();
+}
+
+
 export function pauseDateTimeAnimation() {
     document.getElementsByClassName('datetime-container')[0].classList.add('paused');
 }

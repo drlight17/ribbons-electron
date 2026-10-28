@@ -10,68 +10,19 @@
  */
 var RibbonsModern = (function () {
     "use strict";
-
     var clamp = function (value, min, max) {
         return Math.max(min, Math.min(max, value));
     };
     var rand = function (min, max) {
         return min + Math.random() * (max - min);
     };
-
-    // Saturated warm hues so yellow / orange / red stand out on dark backgrounds.
-    var palette = [
-        ["#7df9ff", "#287dff", "#b6fbff"],
-        ["#ff8de1", "#a14dff", "#ffd2f4"],
-        ["#8bffb0", "#15b9b1", "#d7ffe7"],
-        ["#fff000", "#ffd400", "#fffca8"],
-        ["#ff3b30", "#e00024", "#ffaaa3"],
-        ["#ff7a00", "#ff4500", "#ffd0a1"],
-        ["#ffcf00", "#ff8c00", "#fff1a6"],
-        ["#ff1744", "#c4002f", "#ff9bb1"],
-        ["#ff5e00", "#f02d00", "#ffc09b"],
-        ["#ffb86b", "#f044b8", "#ffe0a8"],
-        ["#a6a4ff", "#5274ff", "#e4e5ff"],
-        ["#8ef0ff", "#00a6a6", "#d1ffff"],
-        ["#d6ff75", "#64a817", "#f0ffc7"],
-        ["#ffa0a0", "#e32636", "#ffd6d6"],
-        ["#c4a1ff", "#7028e4", "#f0dfff"],
-        ["#fff08a", "#e39b00", "#fffbd0"],
-        ["#7fffd4", "#008f87", "#c7fff0"],
-        ["#ff9f6e", "#d83b12", "#ffe0c9"],
-        ["#9ebcff", "#263fbb", "#e1eaff"],
-        ["#f6a6ff", "#b321d1", "#ffe0ff"],
-        ["#c5f36b", "#3f8e3d", "#eaffc7"]
-    ];
-
-    // Darker variants for light backgrounds.
-    var lightPalette = [
-        ["#00a6bd", "#0755d9", "#51d7e8"],
-        ["#d51a9b", "#7123c9", "#f06ac6"],
-        ["#168b43", "#087d78", "#50c98a"],
-        ["#c49a00", "#e6b800", "#ffe45c"],
-        ["#d90024", "#b50020", "#ff687b"],
-        ["#d94b00", "#f05a00", "#ff9b52"],
-        ["#d46b00", "#d92858", "#f5a33b"],
-        ["#493cc7", "#254fd1", "#8b83f4"],
-        ["#c34200", "#a91c75", "#f07a37"],
-        ["#007c9c", "#0048b8", "#24c3d8"],
-        ["#548400", "#28752e", "#91bd28"],
-        ["#c21832", "#8d1028", "#f05b6c"],
-        ["#5d35bd", "#321b91", "#9670e8"],
-        ["#a16a00", "#bd4d00", "#e5a51b"],
-        ["#007d69", "#005c67", "#1db69a"],
-        ["#b52e0a", "#8c1f16", "#e86b36"],
-        ["#2443a8", "#152a7b", "#6285e7"],
-        ["#9d159f", "#6b197e", "#d34be0"],
-        ["#39752b", "#245d2b", "#76a83e"]
-    ];
-
+    // Random mode uses procedural HSL (see _randomTriple) — no fixed palette.
+    // Tricolor keeps a small explicit set for white / blue / red parity with classic.
     var tricolorPalette = [
         ["#ffffff", "#ffffff", "#ffffff"],
         ["#2867e8", "#2867e8", "#2867e8"],
         ["#ff414d", "#ff414d", "#ff414d"]
     ];
-
     var Factory = function (options) {
         this._canvas = null;
         this._context = null;
@@ -87,9 +38,9 @@ var RibbonsModern = (function () {
         this._paused = false;
         this._destroyed = false;
         this._resizeObserver = null;
-        // last palette index used — next ribbon must pick a different one
+        // last random hue / tricolor index — avoid immediate repeats
         this._lastColorIndex = -1;
-
+        this._lastHue = null;
         this._options = {
             // classic | tricolor (also set automatically when singleColor === 667)
             mode: "classic",
@@ -101,7 +52,8 @@ var RibbonsModern = (function () {
              *   0..360     — fixed HSL hue for every ribbon
              */
             singleColor: false,
-            // darkGradient | lightGradient | light | dark
+            // darkGradient | lightGradient | light | dark | transparent | glass
+            // transparent/glass = no background fill (for glasstron / acrylic blur windows)
             backgroundMode: "darkGradient",
             // how many ribbons on screen
             ribbonCount: 5,
@@ -145,16 +97,13 @@ var RibbonsModern = (function () {
             // Stacking: bg (z-1) < datetime (-1) < ribbons (0) < datetime.front (4)
             zIndex: 0
         };
-
         this._onFrame = this._onFrame.bind(this);
         this._onResize = this._onResize.bind(this);
         this.setOptions(options);
         this.init();
     };
-
     Factory.prototype = {
         constructor: Factory,
-
         setOptions: function (options) {
             var key;
             if (typeof options === "object" && options) {
@@ -193,7 +142,6 @@ var RibbonsModern = (function () {
                 this._options.maxTwist = this._options.minTwist;
             }
         },
-
         _styleCanvas: function (el, zIndex) {
             el.style.display = "block";
             el.style.margin = "0";
@@ -213,7 +161,6 @@ var RibbonsModern = (function () {
                 el.style.position = "absolute";
             }
         },
-
         init: function () {
             try {
                 this._container = this._options.container || document.body;
@@ -224,24 +171,20 @@ var RibbonsModern = (function () {
                     }
                     this._container.style.overflow = "hidden";
                 }
-
                 var ribZ = this._options.zIndex != null ? this._options.zIndex : 0;
                 var bgZ = ribZ - 1; // below datetime (-1) when ribZ is 0
-
                 // Background canvas — solid / gradient fill (below datetime)
                 this._bgCanvas = document.createElement("canvas");
                 this._bgCanvas.className = "ribbons-bg-canvas";
                 this._styleCanvas(this._bgCanvas, bgZ);
                 this._bgContext = this._bgCanvas.getContext("2d");
                 this._container.appendChild(this._bgCanvas);
-
                 // Ribbons canvas — transparent, only ribbons (above datetime)
                 this._canvas = document.createElement("canvas");
                 this._canvas.className = "ribbons-modern-canvas";
                 this._styleCanvas(this._canvas, ribZ);
                 this._context = this._canvas.getContext("2d");
                 this._container.appendChild(this._canvas);
-
                 this._onResize();
                 if (typeof ResizeObserver !== "undefined") {
                     this._resizeObserver = new ResizeObserver(this._onResize);
@@ -261,29 +204,102 @@ var RibbonsModern = (function () {
                 console.warn("RibbonsModern init error: " + e.toString());
             }
         },
-
         /**
          * Build [glow, main, highlight] triple from an HSL hue (classic singleColor).
-         * 666 → grayscale; other numbers → saturated hue.
+         * 666 → grayscale; other numbers → saturated hue (tweaked for current backgroundMode).
          */
+        _isLightBackground: function () {
+            var bg = this._options.backgroundMode;
+            return bg === "light" || bg === "lightGradient";
+        },
+        _hsl: function (h, s, l) {
+            return "hsl(" + Math.round(h) + ", " + Math.round(s) + "%, " + Math.round(l) + "%)";
+        },
         _tripleFromHue: function (hue) {
             if (hue === 666) {
-                // Grayscale — mirrors classic s=0%
+                if (this._isLightBackground()) {
+                    return ["#5a5a5a", "#3a3a3a", "#6e6e6e"];
+                }
                 return ["#f5f5f5", "#9a9a9a", "#d8d8d8"];
             }
             var h = ((Number(hue) % 360) + 360) % 360;
-            // glow / main / highlight as CSS hsl (canvas accepts these)
+            var light = this._isLightBackground();
+            if (light) {
+                return [
+                    this._hsl(h, 88, 48),
+                    this._hsl(h, 82, 38),
+                    this._hsl(h, 85, 55)
+                ];
+            }
             return [
-                "hsl(" + h + ", 90%, 72%)",
-                "hsl(" + h + ", 80%, 52%)",
-                "hsl(" + h + ", 85%, 78%)"
+                this._hsl(h, 90, 72),
+                this._hsl(h, 80, 52),
+                this._hsl(h, 85, 78)
             ];
         },
+        /**
+         * Procedural [glow, main, highlight] for random mode.
+         * Saturation / lightness ranges depend on backgroundMode so ribbons
+         * stay readable on light fills and vivid on dark ones.
+         */
+        _randomTriple: function () {
+            var light = this._isLightBackground();
+            var h = rand(0, 360);
+            // Avoid hues too close to the previous ribbon
+            if (this._lastHue != null) {
+                var delta = ((h - this._lastHue + 540) % 360) - 180;
+                if (Math.abs(delta) < 32) {
+                    h = (this._lastHue + 32 + Math.random() * (360 - 64)) % 360;
+                }
+            }
+            this._lastHue = h;
 
+            var s, lMain, lGlow, lHi;
+            if (light) {
+                // Punchy mid-dark colors on light / lightGradient
+                s = rand(70, 96);
+                lMain = rand(30, 46);
+                lGlow = clamp(lMain + rand(6, 16), 38, 58);
+                lHi = clamp(lMain + rand(12, 22), 44, 64);
+                // Yellow-green band washes out on light gray — keep it deeper
+                if (h >= 38 && h <= 85) {
+                    lMain = Math.min(lMain, 40);
+                    lGlow = Math.min(lGlow, 52);
+                    s = Math.max(s, 78);
+                }
+                // Very light cyans can disappear — bias saturation up
+                if (h >= 160 && h <= 200) {
+                    s = Math.max(s, 75);
+                    lMain = Math.min(lMain, 42);
+                }
+            } else {
+                // Neon / luminous on dark, darkGradient, transparent, glass
+                s = rand(76, 100);
+                lMain = rand(48, 64);
+                lGlow = clamp(lMain + rand(10, 22), 58, 84);
+                lHi = clamp(lMain + rand(16, 28), 66, 90);
+                // Deep reds & violets: slightly lower main for depth
+                if (h < 18 || h > 265) {
+                    lMain = rand(44, 58);
+                    lGlow = clamp(lMain + rand(14, 26), 60, 82);
+                }
+                // Yellows pop hard on dark — slight desat so they don't blow out
+                if (h >= 45 && h <= 70) {
+                    s = rand(72, 92);
+                    lMain = clamp(lMain, 50, 60);
+                }
+            }
+
+            return [
+                this._hsl(h, s, lGlow),
+                this._hsl(h, clamp(s * 0.92, 55, 100), lMain),
+                this._hsl(h, clamp(s * 0.95, 55, 100), lHi)
+            ];
+        },
         /**
          * Pick colors for a new ribbon.
          * Honour singleColor like classic ribbons.js:
-         *   false  → random palette (no immediate repeat)
+         *   false  → procedural random (backgroundMode-aware)
          *   667    → tricolor cycle
          *   666    → gray
          *   number → fixed hue for every ribbon
@@ -292,12 +308,10 @@ var RibbonsModern = (function () {
             var sc = this._options.singleColor;
             var isTricolor =
                 this._options.mode === "tricolor" || sc === 667;
-
             if (isTricolor) {
                 var n = tricolorPalette.length;
                 var index;
                 if (typeof i === "number" && i >= 0) {
-                    // sequential when creating a batch (reset) — white, blue, red…
                     index = i % n;
                 } else {
                     index = Math.floor(Math.random() * n);
@@ -308,32 +322,13 @@ var RibbonsModern = (function () {
                 this._lastColorIndex = index;
                 return tricolorPalette[index];
             }
-
             // Fixed single color (including gray 666)
             if (sc !== false && sc !== undefined && sc !== null && sc !== 0) {
                 return this._tripleFromHue(sc);
             }
-
-            // Random from light/dark palette
-            var bg = this._options.backgroundMode;
-            var light =
-                bg === "light" ||
-                bg === "lightGradient" ||
-                (bg === "darkGradient" && document.body && document.body.classList.contains("light"));
-            var colors = light ? lightPalette : palette;
-            var n2 = colors.length;
-            if (n2 <= 1) {
-                this._lastColorIndex = 0;
-                return colors[0];
-            }
-            var idx = Math.floor(Math.random() * n2);
-            if (idx === this._lastColorIndex) {
-                idx = (idx + 1 + Math.floor(Math.random() * (n2 - 1))) % n2;
-            }
-            this._lastColorIndex = idx;
-            return colors[idx];
+            // Procedural random — infinite variety, tuned to backgroundMode
+            return this._randomTriple();
         },
-
         _makeRibbon: function (i) {
             var minW = this._options.minWidth;
             var maxW = this._options.maxWidth;
@@ -341,7 +336,6 @@ var RibbonsModern = (function () {
             var maxCurl = this._options.maxCurl;
             var minTwist = this._options.minTwist;
             var maxTwist = this._options.maxTwist;
-
             var side = function () {
                 return Math.floor(Math.random() * 4);
             };
@@ -352,25 +346,20 @@ var RibbonsModern = (function () {
                 if (s === 2) return { x: rand(-0.15, 1.15), y: -m };
                 return { x: rand(-0.15, 1.15), y: 1 + m };
             };
-
             var a = side();
             var b = side();
             while (b === a) b = side();
-
             // Curl / twist in turns (1 = 360°). Direction is random per ribbon.
             var curlTurns = rand(minCurl, maxCurl);
             var twistTurns = rand(minTwist, maxTwist);
             var curlDir = Math.random() < 0.5 ? 1 : -1;
             var twistDir = Math.random() < 0.5 ? 1 : -1;
-
             // Secondary harmonic (kept mild so path does not collapse into a thread)
             var curlHarmonic = 2.0;
             var curlHarmonicMix = rand(0.05, 0.15);
-
             // Amplitude in normalized screen space — clamp hard to avoid self-erasing loops
             var baseAmp = this._options.curlAmplitude * rand(0.75, 1.1);
             var curlAmp = Math.min(0.26, baseAmp * (0.45 + 0.3 * clamp(curlTurns, 0, 1.5)));
-
             // Control points: moderate spread (too much = folded thin ribbons)
             var spread = 0.35 + 0.25 * clamp(curlTurns, 0, 1.5);
             return {
@@ -401,26 +390,25 @@ var RibbonsModern = (function () {
                 twistPhase: rand(0, Math.PI * 2)
             };
         },
-
         reset: function () {
             var n = this._options.ribbonCount;
             var i;
             this._ribbons = [];
             this._lastColorIndex = -1;
+            this._lastHue = null;
             for (i = 0; i < n; i++) {
                 this._ribbons.push(this._makeRibbon(i));
             }
         },
-
         recolor: function () {
             var self = this;
             // Reset so the first recolored ribbon is free to pick any color
             this._lastColorIndex = -1;
+            this._lastHue = null;
             this._ribbons.forEach(function (ribbon) {
                 ribbon.colors = self._colorsFor();
             });
         },
-
         _onResize: function () {
             if (this._destroyed || !this._canvas) return;
             var el = this._container === document.body ? document.documentElement : this._container;
@@ -450,7 +438,6 @@ var RibbonsModern = (function () {
             }
             this._drawBackground();
         },
-
         /**
          * Cubic Bézier in normalized space + multi-turn lateral curl.
          * Curl displaces the point perpendicular to the local tangent so the
@@ -462,11 +449,9 @@ var RibbonsModern = (function () {
             var v = 1 - u;
             var k = 3 * v * v * u;
             var l = 3 * v * u * u;
-
             // Base cubic
             var nx = v * v * v * r.p0.x + k * r.p1.x + l * r.p2.x + u * u * u * r.p3.x;
             var ny = v * v * v * r.p0.y + k * r.p1.y + l * r.p2.y + u * u * u * r.p3.y;
-
             // Approximate tangent from cubic derivative
             var tx = 3 * v * v * (r.p1.x - r.p0.x) + 6 * v * u * (r.p2.x - r.p1.x) + 3 * u * u * (r.p3.x - r.p2.x);
             var ty = 3 * v * v * (r.p1.y - r.p0.y) + 6 * v * u * (r.p2.y - r.p1.y) + 3 * u * u * (r.p3.y - r.p2.y);
@@ -476,7 +461,6 @@ var RibbonsModern = (function () {
             // Perpendicular in normalized space
             var px = -ty;
             var py = tx;
-
             // Multi-turn lateral wave — smooth sinusoid only (no sharp harmonics)
             var turns = r.curlTurns || 0;
             var phase = (r.curlPhase || 0) + u * Math.PI * 2 * turns * (r.curlDir || 1);
@@ -491,7 +475,6 @@ var RibbonsModern = (function () {
             var amp = (r.curlAmp || 0) * envelope;
             nx += px * wave * amp;
             ny += py * wave * amp;
-
             // Gentler depth — high-frequency z was causing shimmering kinks under perspective
             var z = Math.sin(r.depthTime + r.depth + u * 1.8) * r.depthAmt * 2.2;
             if (r.twistTurns) {
@@ -499,7 +482,6 @@ var RibbonsModern = (function () {
                     * r.depthAmt * (0.6 + 0.9 * clamp(r.twistTurns, 0, 2));
             }
             var perspective = 1 / (1 + z * 0.1);
-
             return {
                 x: W * 0.5 + (nx * W - W * 0.5) * perspective,
                 y: H * 0.5 + (ny * H - H * 0.5) * perspective,
@@ -510,7 +492,6 @@ var RibbonsModern = (function () {
                 ty: ty
             };
         },
-
         _widthAt: function (r, u, p) {
             // Mild edge taper only — main taper is applied in _drawRibbon.
             // Keep depth wobble subtle so minWidth/maxWidth stay readable.
@@ -518,7 +499,6 @@ var RibbonsModern = (function () {
             var persp = p && p.persp ? p.persp : 1;
             return r.width * persp * depthWobble;
         },
-
         _drawRibbon: function (r) {
             if (r.age < 0) return;
             var ctx = this._context;
@@ -526,7 +506,6 @@ var RibbonsModern = (function () {
             var progress = clamp(r.age / r.life, 0, 1);
             var reveal = clamp((progress - 0.03) / (0.48 * r.lengthFactor), 0, 1);
             if (reveal <= 0 || r.age >= r.life) return;
-
             // Map minLength/maxLength → visible fraction of the path (clearer range than before)
             var maxVisibleSpan = 0.12 + ((clamp(opts.maxLength, 0.1, 6) - 0.1) / 5.9) * 0.88;
             var minVisibleSpan = 0.06 + ((clamp(opts.minLength, 0.1, 6) - 0.1) / 5.9) * 0.88;
@@ -536,19 +515,16 @@ var RibbonsModern = (function () {
             var travel = opts.endless ? 0 : clamp((progress - 0.53) / 0.47, 0, 1);
             var start = opts.endless ? 0 : travel * (1 + visibleSpan) - visibleSpan;
             var end = opts.endless ? reveal : start + visibleSpan * reveal;
-
             // Samples: denser with curl, but capped — smoothness comes from normal
             // parallel-transport + path smoothing, not from huge sample counts.
             var complexity = Math.max(r.curlTurns || 0, r.twistTurns || 0);
-            var sampleCount = Math.round(clamp(72 + complexity * 36, 72, 160));
-
+            var sampleCount = Math.round(clamp(90 + complexity * 48, 90, 200));
             var pts = [];
             var i;
             for (i = 0; i <= sampleCount; i++) {
                 var uu = start + (end - start) * (i / sampleCount);
                 pts.push(this._point(r, uu));
             }
-
             // One-pass Laplacian smooth on centerline (kills micro-jaggies cheaply)
             if (pts.length > 4) {
                 var sx = new Array(pts.length);
@@ -562,13 +538,11 @@ var RibbonsModern = (function () {
                     pts[i].y = sy[i] * 0.5 + (sy[i - 1] + sy[i + 1]) * 0.25;
                 }
             }
-
             var left = [];
             var right = [];
             var twistTurns = r.twistTurns || 0;
             var twistDir = r.twistDir || 1;
             var twistPhase = r.twistPhase || 0;
-
             // Tangents from wider stencil, then parallel-transport normals so they
             // never flip when the path folds — this is what removed the "glitch kinks".
             var nPts = pts.length;
@@ -606,7 +580,6 @@ var RibbonsModern = (function () {
                     smoothTy[i] = by / bl;
                 }
             }
-
             // Parallel transport of side normal
             var nrmX = new Array(nPts);
             var nrmY = new Array(nPts);
@@ -636,12 +609,27 @@ var RibbonsModern = (function () {
                     nrmY[i] = -nrmY[i];
                 }
             }
-
+            // Soft normal smoothing — reduces residual flips at high curvature
+            for (var npass = 0; npass < 2; npass++) {
+                var nx2 = nrmX.slice();
+                var ny2 = nrmY.slice();
+                for (i = 1; i < nPts - 1; i++) {
+                    var nbx = nx2[i - 1] + nx2[i] * 2 + nx2[i + 1];
+                    var nby = ny2[i - 1] + ny2[i] * 2 + ny2[i + 1];
+                    var nbl = Math.hypot(nbx, nby) || 1;
+                    nrmX[i] = nbx / nbl;
+                    nrmY[i] = nby / nbl;
+                    // preserve orientation relative to pre-smooth normal
+                    if (nrmX[i] * nx2[i] + nrmY[i] * ny2[i] < 0) {
+                        nrmX[i] = -nrmX[i];
+                        nrmY[i] = -nrmY[i];
+                    }
+                }
+            }
             for (i = 0; i < nPts; i++) {
                 var p = pts[i];
                 var nx = nrmX[i];
                 var ny = nrmY[i];
-
                 var twistAngle = twistPhase + p.u * Math.PI * 2 * twistTurns * twistDir;
                 var ca = Math.cos(twistAngle);
                 var sa = Math.sin(twistAngle);
@@ -656,16 +644,13 @@ var RibbonsModern = (function () {
                     rx = -rx;
                     ry = -ry;
                 }
-
                 var shear = sa * mix * 0.22;
-
                 var taper = Math.sin((Math.PI * i) / Math.max(1, nPts - 1));
                 var taperW = Math.pow(Math.max(0, taper), 0.55);
                 var baseW = this._widthAt(r, p.u, p) * taperW;
                 var minFloor = r.width * 0.35 * (p.persp || 1) * taper;
                 var twistScale = 0.85 + 0.15 * Math.abs(ca);
                 var w = Math.max(minFloor, baseW * twistScale);
-
                 left.push({
                     x: p.x + rx * w + smoothTx[i] * w * shear,
                     y: p.y + ry * w + smoothTy[i] * w * shear
@@ -675,7 +660,24 @@ var RibbonsModern = (function () {
                     y: p.y - ry * w + smoothTy[i] * w * shear
                 });
             }
-
+            // Extra edge smoothing — kills residual kinks at high curvature
+            function smoothSide(arr) {
+                if (arr.length < 5) return;
+                var ex = arr.map(function (pt) { return pt.x; });
+                var ey = arr.map(function (pt) { return pt.y; });
+                for (var sp = 0; sp < 2; sp++) {
+                    for (var si = 2; si < arr.length - 2; si++) {
+                        arr[si].x = (ex[si - 2] + ex[si - 1] * 2 + ex[si] * 3 + ex[si + 1] * 2 + ex[si + 2]) / 9;
+                        arr[si].y = (ey[si - 2] + ey[si - 1] * 2 + ey[si] * 3 + ey[si + 1] * 2 + ey[si + 2]) / 9;
+                    }
+                    for (var sj = 0; sj < arr.length; sj++) {
+                        ex[sj] = arr[sj].x;
+                        ey[sj] = arr[sj].y;
+                    }
+                }
+            }
+            smoothSide(left);
+            smoothSide(right);
             var first = pts[0];
             var lastp = pts[pts.length - 1];
             var fadeIn = clamp(r.age / 1.2, 0, 1) * clamp((progress - 0.03) / 0.18, 0, 1);
@@ -684,7 +686,6 @@ var RibbonsModern = (function () {
             if (alpha <= 0 || pts.length < 3 || Math.hypot(lastp.x - first.x, lastp.y - first.y) < 0.5) {
                 return;
             }
-
             // Smooth poly-line via quadratic midpoints (same sample budget, less faceting)
             function strokeSide(arr, reverse) {
                 var n = arr.length;
@@ -707,7 +708,6 @@ var RibbonsModern = (function () {
                     ctx.lineTo(arr[0].x, arr[0].y);
                 }
             }
-
             ctx.save();
             ctx.globalAlpha = alpha;
             ctx.lineJoin = "round";
@@ -717,7 +717,6 @@ var RibbonsModern = (function () {
             strokeSide(left, false);
             strokeSide(right, true);
             ctx.closePath();
-
             var lightBackground =
                 opts.backgroundMode === "light" || opts.backgroundMode === "lightGradient";
             var grad = ctx.createLinearGradient(0, first.y, 0, lastp.y + 1);
@@ -743,11 +742,14 @@ var RibbonsModern = (function () {
             }
             ctx.restore();
         },
-
         /**
          * Paint background on the dedicated bg canvas (below datetime).
          * Ribbons canvas is cleared transparent each frame so datetime (z-index: -1)
          * sits between background and ribbons.
+         *
+         * backgroundMode values:
+         *   "darkGradient" | "lightGradient" | "dark" | "light" | "transparent" | "glass"
+         *   "transparent" | "glass" — no fill (for glasstron / acrylic blur windows)
          */
         _drawBackground: function () {
             var ctx = this._bgContext || this._context;
@@ -756,6 +758,11 @@ var RibbonsModern = (function () {
             var H = this._height;
             var mode = this._options.backgroundMode;
             ctx.clearRect(0, 0, W, H);
+
+            // Transparent / glass — leave canvas fully transparent for glasstron blur
+            if (mode === "transparent" || mode === "glass") {
+                return;
+            }
 
             if (mode === "light") {
                 ctx.fillStyle = "#ffffff";
@@ -788,7 +795,6 @@ var RibbonsModern = (function () {
                 ctx.fillRect(0, 0, W, H);
             }
         },
-
         _onFrame: function (ts) {
             if (this._destroyed) return;
             this._raf = requestAnimationFrame(this._onFrame);
@@ -822,34 +828,29 @@ var RibbonsModern = (function () {
                 this._drawRibbon(sorted[i]);
             }
         },
-
         // --- public API (controller-friendly) ---
-
         pause: function () {
             this._paused = true;
         },
-
         resume: function () {
             this._paused = false;
             this._lastTs = 0;
         },
-
         /** Replace one random ribbon */
         spawnNew: function () {
             if (!this._ribbons.length) return;
             var index = Math.floor(Math.random() * this._ribbons.length);
             this._ribbons[index] = this._makeRibbon(index);
         },
-
         /**
-         * Apply new options at runtime.
-         * Geometry-affecting keys trigger reset(); background/mode triggers recolor.
+         * Apply new options at runtime without destroying the animation.
+         * Full reset only when engine mode / color mode family changes.
+         * Width, curl, twist, amplitude, count, endless → live remap.
          */
         updateOptions: function (options) {
             var prevMode = this._options.mode;
             var prevBg = this._options.backgroundMode;
             var prevCount = this._options.ribbonCount;
-            var prevEndless = this._options.endless;
             var prevMinW = this._options.minWidth;
             var prevMaxW = this._options.maxWidth;
             var prevMinCurl = this._options.minCurl;
@@ -858,22 +859,19 @@ var RibbonsModern = (function () {
             var prevMaxTwist = this._options.maxTwist;
             var prevCurlAmp = this._options.curlAmplitude;
             var prevSingle = this._options.singleColor;
-
             this.setOptions(options);
 
+            var singleMode = function (sc) {
+                if (sc === false || sc === undefined || sc === null || sc === 0) return 'rainbow';
+                if (sc === 667) return 'tricolor';
+                if (sc === 666) return 'gray';
+                return 'fixed';
+            };
+            var singleModeChanged = singleMode(prevSingle) !== singleMode(this._options.singleColor);
+            // Only hard reset when ribbon "family" changes (tricolor path / color system)
             var needReset =
                 this._options.mode !== prevMode ||
-                this._options.ribbonCount !== prevCount ||
-                this._options.endless !== prevEndless ||
-                this._options.minCurl !== prevMinCurl ||
-                this._options.maxCurl !== prevMaxCurl ||
-                this._options.minTwist !== prevMinTwist ||
-                this._options.maxTwist !== prevMaxTwist ||
-                this._options.curlAmplitude !== prevCurlAmp ||
-                this._options.minWidth !== prevMinW ||
-                this._options.maxWidth !== prevMaxW ||
-                this._options.singleColor !== prevSingle;
-
+                singleModeChanged;
             var needRecolor =
                 this._options.backgroundMode !== prevBg ||
                 this._options.mode !== prevMode ||
@@ -881,29 +879,77 @@ var RibbonsModern = (function () {
 
             if (needReset) {
                 this.reset();
-            } else if (needRecolor) {
+                if (this._options.backgroundMode !== prevBg) {
+                    this._drawBackground();
+                }
+                return;
+            }
+
+            if (needRecolor) {
                 this.recolor();
             }
             if (this._options.backgroundMode !== prevBg) {
                 this._drawBackground();
             }
 
-            // Live width remap if only width changed mid-flight (reset path already sets width)
-            if (
-                !needReset &&
-                (this._options.minWidth !== prevMinW || this._options.maxWidth !== prevMaxW)
-            ) {
-                var minW = this._options.minWidth;
-                var maxW = this._options.maxWidth;
+            var minW = this._options.minWidth;
+            var maxW = this._options.maxWidth;
+            var minCurl = this._options.minCurl;
+            var maxCurl = this._options.maxCurl;
+            var minTwist = this._options.minTwist;
+            var maxTwist = this._options.maxTwist;
+            var curlAmpOpt = this._options.curlAmplitude;
+
+            var widthChanged = minW !== prevMinW || maxW !== prevMaxW;
+            var curlChanged =
+                minCurl !== prevMinCurl ||
+                maxCurl !== prevMaxCurl ||
+                curlAmpOpt !== prevCurlAmp;
+            var twistChanged = minTwist !== prevMinTwist || maxTwist !== prevMaxTwist;
+
+            // Remap existing ribbons into new ranges (keep age / path / colors)
+            if (widthChanged || curlChanged || twistChanged) {
+                var oldCurlSpan = (prevMaxCurl - prevMinCurl) || 1e-6;
+                var oldTwistSpan = (prevMaxTwist - prevMinTwist) || 1e-6;
                 this._ribbons.forEach(function (r) {
-                    r.width = rand(minW, maxW);
+                    if (widthChanged) {
+                        // Keep relative position inside old width range when possible
+                        var oldWSpan = (prevMaxW - prevMinW) || 1e-6;
+                        var wt = clamp((r.width - prevMinW) / oldWSpan, 0, 1);
+                        r.width = minW + wt * (maxW - minW);
+                    }
+                    if (curlChanged) {
+                        var ct = clamp((r.curlTurns - prevMinCurl) / oldCurlSpan, 0, 1);
+                        r.curlTurns = minCurl + ct * (maxCurl - minCurl);
+                        var baseAmp = curlAmpOpt * (0.75 + 0.35 * (r.id || Math.random()));
+                        // id is random 0..1 — use stable-ish factor from existing curlAmp if present
+                        if (typeof r.curlAmp === 'number' && prevCurlAmp > 0) {
+                            baseAmp = curlAmpOpt * clamp(r.curlAmp / (prevCurlAmp * 0.9 || 1e-6), 0.6, 1.3);
+                        }
+                        r.curlAmp = Math.min(
+                            0.26,
+                            baseAmp * (0.45 + 0.3 * clamp(r.curlTurns, 0, 1.5))
+                        );
+                    }
+                    if (twistChanged) {
+                        var tt = clamp((r.twistTurns - prevMinTwist) / oldTwistSpan, 0, 1);
+                        r.twistTurns = minTwist + tt * (maxTwist - minTwist);
+                    }
                 });
             }
 
-            // Live twist/curl remap on existing ribbons when ranges change but reset already handles it.
-            // minLength/maxLength are read from this._options every frame — no reset needed.
+            // ribbonCount: add or drop without respawning the rest
+            var count = this._options.ribbonCount;
+            if (count !== prevCount) {
+                while (this._ribbons.length > count) {
+                    this._ribbons.pop();
+                }
+                while (this._ribbons.length < count) {
+                    this._ribbons.push(this._makeRibbon(this._ribbons.length));
+                }
+            }
+            // endless / minLength / maxLength / opacity / glow / speed — read each frame
         },
-
         destroy: function () {
             this._destroyed = true;
             if (this._raf != null) {
@@ -929,12 +975,9 @@ var RibbonsModern = (function () {
             this._ribbons = [];
         }
     };
-
     return Factory;
 })();
-
 if (typeof window === "object") {
     window.RibbonsModern = RibbonsModern;
 }
-
 export default RibbonsModern;

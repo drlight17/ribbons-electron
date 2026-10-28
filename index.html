@@ -9,7 +9,7 @@
     <title>ribbons.js</title>
 </head>
 
-<body>
+<body class="main">
     <div class="datetime-container hidden">
         <div class="date" id="currentDate"></div>
         <div class="time" id="currentTime"></div>
@@ -17,7 +17,12 @@
     <div class="drl-container hidden">
         <img src="developed_by_drlight.png" class="drl"/>
     </div>
-    <button class="hidden" id="close-button"> <span id="span"> ❌ </span> </button>
+    <button class="hidden" id="close-button" title="Close" aria-label="Close">
+      <svg width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="currentColor"
+          d="M18.3 5.7a1 1 0 0 0-1.4 0L12 10.6 7.1 5.7a1 1 0 1 0-1.4 1.4l4.9 4.9-4.9 4.9a1 1 0 1 0 1.4 1.4l4.9-4.9 4.9 4.9a1 1 0 0 0 1.4-1.4L13.4 12l4.9-4.9a1 1 0 0 0 0-1.4z"/>
+      </svg>
+    </button>
     <script type="module" src="controller.js"></script>
 </body>
 
