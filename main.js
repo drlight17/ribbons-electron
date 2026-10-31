@@ -1759,10 +1759,15 @@ if (!gotTheLock) {
                             bounds.width === width &&
                             bounds.height === height;
                         } else if (isMac) {
-                          isFullscreen[display.id] =
-                            bounds.x === x &&
-                            bounds.y === y &&
-                            bounds.width === width;
+                          if (bounds !== undefined) {
+                            isFullscreen[display.id] =
+                              bounds.x === x &&
+                              bounds.y === y &&
+                              bounds.width === width;
+                            } else {
+                              //writeLog('There is no active windows but it is Mac. Running screensaver.');
+                              isFullscreen[display.id] = null;
+                            }
                         } else {
                           // if linux run screensavers at all display without exclude active fullscreen app (we have no info about bounds from xprop)
                           isFullscreen[display.id] = curWindow[display.id].fullscreen;
@@ -1778,6 +1783,9 @@ if (!gotTheLock) {
                           startScreensaver(mainWindow, display);
                         }
                       } else {
+                        if (paused[display.id]) {
+                          return;
+                        }
                         //writeLog('There is no active windows but it is Mac. Running screensaver.');
                         startScreensaver(mainWindow, display);
                       }
