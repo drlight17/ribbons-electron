@@ -1,4 +1,4 @@
-# <h1><img align="center" width="100" height="100" src="https://raw.githubusercontent.com/drlight17/ribbons-electron/master/icon.png"> Ribbons Screensaver </h1>
+# <img align="center" src="https://raw.githubusercontent.com/drlight17/ribbons-electron/master/banner.png">
 Famous windows-like Ribbons screensaver made with js and Electron wrapped for multi platform support
 
 <table>
