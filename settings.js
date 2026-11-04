@@ -183,7 +183,10 @@ function applyI18n() {
   });
   document.title = t('settings_title');
   const eng = getEngine();
-  
+  const sub = $('previewSubtitle');
+  if (sub) {
+    sub.textContent = eng === 'classic' ? t('preview_subtitle_classic') : t('preview_subtitle_modern');
+  }
   document.querySelectorAll('.locale-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.locale === currentLocale);
   });
@@ -194,6 +197,7 @@ const DEFAULTS = {
   locale: 'en',
   engine: 'modern',
   backgroundMode: 'auto',
+  theme: 'auto',
   ui_theme: 'auto',
   stretched_mode: false,
   selected_displays: 'all',
@@ -202,14 +206,17 @@ const DEFAULTS = {
   ribbonCount: 5,
   horizontalSpeed: 1.5,
   endless: true,
-  opacity: 70,
-  glow: 66,
+  opacity: 85 ,
+  glow: 26,
+  blur: 0,
+  shaftBrightness: 100,
+  edgeSoftness: 100,
   minLength: 1,
-  maxLength: 3,
-  minWidth: 10,
-  maxWidth: 30,
-  minCurl: 0.35,
-  maxCurl: 1.0,
+  maxLength: 6,
+  minWidth: 25,
+  maxWidth: 45,
+  minCurl: 1.0,
+  maxCurl: 3.0,
   minTwist: 0,
   maxTwist: 0,
   curlAmplitude: 0.22,
@@ -321,6 +328,9 @@ const RANGE_FMT = {
   },
   opacity: (v) => Math.round(v) + '%',
   glow: (v) => String(Math.round(v)),
+  blur: (v) => String(Math.round(v)),
+  shaftBrightness: (v) => Math.round(v) + '%',
+  edgeSoftness: (v) => Math.round(v) + '%',
   minLength: (v) => Number(v).toFixed(1),
   maxLength: (v) => Number(v).toFixed(1),
   minWidth: (v) => String(Math.round(v)),
@@ -356,10 +366,9 @@ function getEngine() {
   return $('engine').value === 'classic' ? 'classic' : 'modern';
 }
 
-function resolveUiTheme(uiTheme, backgroundMode) {
+function resolveUiTheme(uiTheme, backgroundMode, theme) {
   if (uiTheme === 'light' || uiTheme === 'dark') return uiTheme;
-  // auto / follow backgroundMode
-  const src = backgroundMode || 'dark';
+  const src = backgroundMode || theme || 'dark';
   if (src === 'light' || src === 'lightGradient') return 'light';
   return 'dark';
 }
@@ -379,18 +388,6 @@ function setEngine(engine, { silent } = {}) {
   document.querySelectorAll('.engine-only').forEach((el) => {
     el.hidden = el.dataset.engine !== eng;
   });
-  // #backgroundMode is shared by classic and modern — keep its row visible
-  const bgMode = $('backgroundMode');
-  if (bgMode) {
-    let el = bgMode;
-    while (el && el !== document.body) {
-      if (el.classList && el.classList.contains('engine-only')) {
-        el.hidden = false;
-        break;
-      }
-      el = el.parentElement;
-    }
-  }
   const badge = $('liveBadge');
   if (eng === 'classic') {
     badge.textContent = 'CLASSIC · LIVE';
@@ -399,7 +396,10 @@ function setEngine(engine, { silent } = {}) {
     badge.textContent = 'MODERN · LIVE';
     badge.className = 'badge modern';
   }
-  
+  const sub = $('previewSubtitle');
+  if (sub) {
+    sub.textContent = eng === 'classic' ? t('preview_subtitle_classic') : t('preview_subtitle_modern');
+  }
   updateColorUi();
   syncSpeedSliderMode(eng);
   if (!silent) applyPreview(true);
@@ -470,8 +470,7 @@ function bindHuePicker() {
     if ($('singleColorMode')?.value !== 'custom') return;
     const x = e.touches ? e.touches[0].clientX : e.clientX;
     setCustomHue(hueFromPointer(x));
-    // live hue change — no full reset (ribbons keep moving)
-    applyPreview(false);
+    applyPreview(true);
   };
   canvas.addEventListener('pointerdown', (e) => {
     dragging = true;
@@ -559,11 +558,6 @@ function normalizeOpts(opts) {
   }
   // legacy snake_case
   if (o.background_mode != null && o.backgroundMode == null) o.backgroundMode = o.background_mode;
-  // legacy theme (light/dark only) → backgroundMode when missing
-  if (o.backgroundMode == null && (o.theme === 'light' || o.theme === 'dark')) {
-    o.backgroundMode = o.theme;
-  }
-  delete o.theme;
   if (o.color_cycle_speed != null && o.colorCycleSpeed == null) o.colorCycleSpeed = o.color_cycle_speed;
   if (o.horizontal_speed != null && o.horizontalSpeed == null) o.horizontalSpeed = o.horizontal_speed;
   if (o.max_visible_ribbons != null && o.ribbonCount == null) o.ribbonCount = o.max_visible_ribbons;
@@ -696,16 +690,6 @@ function syncRunAtStartupUi() {
   if (row) row.title = runtimeMeta.isPackaged ? '' : 'Available only in packaged build';
 }
 
-function syncLoggingUi() {
-  const el = $('logging');
-  if (!el) return;
-  if (el.checked) {
-    $('btnOpenLog').disabled = false
-  } else {
-    $('btnOpenLog').disabled = true
-  }
-}
-
 function parseSelectedDisplaysFromStore(val) {
   if (!val || val === 'all') return { mode: 'all', ids: [] };
   if (typeof val === 'object' && Array.isArray(val.displays)) {
@@ -751,14 +735,20 @@ function readForm() {
     logging: $('logging').checked
   };
 
-  // Shared: both engines use #backgroundMode only (no separate Theme)
-  data.backgroundMode = $('backgroundMode')?.value || 'dark';
-
   if (engine === 'modern') {
+    let backgroundMode = $('backgroundMode').value;
+    let theme = 'dark';
+    if (backgroundMode === 'light' || backgroundMode === 'lightGradient') theme = 'light';
+    if (backgroundMode === 'auto') theme = 'auto';
     Object.assign(data, {
+      backgroundMode,
+      theme,
       endless: $('endless').checked,
       opacity: +$('opacity').value,
       glow: +$('glow').value,
+      blur: +($('blur')?.value ?? 0),
+      shaftBrightness: +($('shaftBrightness')?.value ?? 40),
+      edgeSoftness: +($('edgeSoftness')?.value ?? 40),
       minLength: +$('minLength').value,
       maxLength: +$('maxLength').value,
       minWidth: +$('minWidth').value,
@@ -791,16 +781,22 @@ function readForm() {
       $('ribbonCount').value = 3;
     }
   } else {
+    // Same backgroundMode options as modern (engine paints all modes on bg canvas)
+    const bgMode = $('backgroundMode')?.value || 'dark';
+    const themeVal =
+      bgMode === 'light' || bgMode === 'lightGradient' ? 'light' : 'dark';
     Object.assign(data, {
-      colorCycleSpeed: singleColor ? 0 : +$('colorCycleSpeed').value,
-      colorSaturation: +$('colorSaturation').value,
-      colorBrightness: +$('colorBrightness').value,
-      colorAlpha: +$('colorAlpha').value,
-      verticalPosition: $('verticalPosition').value,
-      parallaxAmount: +$('parallaxAmount').value,
-      strokeSize: +$('strokeSize').value,
-      ribbonBlur: +$('ribbonBlur').value,
-      animateSections: $('animateSections').checked,
+      theme: themeVal,
+      backgroundMode: bgMode,
+      colorCycleSpeed: singleColor ? 0 : +($('colorCycleSpeed')?.value || 3),
+      colorSaturation: +($('colorSaturation')?.value ?? 60),
+      colorBrightness: +($('colorBrightness')?.value ?? 50),
+      colorAlpha: +($('colorAlpha')?.value ?? 1),
+      verticalPosition: $('verticalPosition')?.value || 'random',
+      parallaxAmount: +($('parallaxAmount')?.value ?? -0.3),
+      strokeSize: +($('strokeSize')?.value ?? 1),
+      ribbonBlur: +($('ribbonBlur')?.value ?? 30),
+      animateSections: $('animateSections')?.checked !== false,
       ...(CLASSIC_SPEED_PRESETS[horizontalSpeed] || CLASSIC_SPEED_PRESETS.normal)
     });
     if (singleColor === 667 && data.ribbonCount < 3) {
@@ -809,7 +805,7 @@ function readForm() {
     }
   }
 
-  const resolved = resolveUiTheme(ui_theme, data.backgroundMode);
+  const resolved = resolveUiTheme(ui_theme, data.backgroundMode, data.theme);
   applyUiTheme(resolved);
   return data;
 }
@@ -845,7 +841,6 @@ async function writeForm(opts) {
   }
   syncDisplaysUi();
   syncRunAtStartupUi();
-  
   $('ribbonCount').value = o.ribbonCount ?? 5;
   syncSpeedSliderMode(engine);
   if (engine === 'classic') {
@@ -873,17 +868,15 @@ async function writeForm(opts) {
   $('hw_acc').checked = asBool(o.hw_acc);
   $('run_at_startup').checked = asBool(o.run_at_startup);
   $('logging').checked = asBool(o.logging);
-  syncLoggingUi()
 
-  // backgroundMode is shared by classic and modern
-  if ($('backgroundMode')) {
-    $('backgroundMode').value = o.backgroundMode || 'darkGradient';
-  }
   if (engine === 'modern') {
-    // backgroundMode already set above
+    $('backgroundMode').value = o.backgroundMode || 'darkGradient';
     $('endless').checked = asBool(o.endless);
     $('opacity').value = o.opacity ?? 100;
     $('glow').value = o.glow ?? 66;
+    if ($('blur')) $('blur').value = o.blur ?? 0;
+    if ($('shaftBrightness')) $('shaftBrightness').value = o.shaftBrightness ?? 40;
+    if ($('edgeSoftness')) $('edgeSoftness').value = o.edgeSoftness ?? 40;
     $('minLength').value = o.minLength ?? 1;
     $('maxLength').value = o.maxLength ?? 3;
     $('minWidth').value = o.minWidth ?? 10;
@@ -894,6 +887,8 @@ async function writeForm(opts) {
     $('minTwist').value = o.minTwist ?? 0;
     $('maxTwist').value = o.maxTwist ?? 1;
   } else {
+    if ($('theme')) $('theme').value = o.theme || 'dark';
+    $('backgroundMode').value = o.backgroundMode || 'darkGradient';
     $('colorCycleSpeed').value = String(o.colorCycleSpeed ?? 3);
     const sat = String(o.colorSaturation ?? 60).replace('%', '');
     const bri = String(o.colorBrightness ?? 50).replace('%', '');
@@ -908,7 +903,7 @@ async function writeForm(opts) {
   }
 
   $('ui_theme').value = o.ui_theme || 'dark';
-  const resolved = resolveUiTheme(o.ui_theme, o.backgroundMode);
+  const resolved = resolveUiTheme(o.ui_theme, o.backgroundMode, o.theme);
   applyUiTheme(resolved);
 
   applyI18n();
@@ -1033,6 +1028,9 @@ function startModern(data) {
     ribbonCount: Math.max(1, Math.round(finite(data.ribbonCount, 3))),
     opacity: Math.max(1, Math.min(100, finite(data.opacity, 100))),
     glow: Math.max(0, finite(data.glow, 66)),
+    blur: Math.max(0, Math.min(80, finite(data.blur, 0))),
+    shaftBrightness: Math.max(0, Math.min(100, finite(data.shaftBrightness, 40))),
+    edgeSoftness: Math.max(0, Math.min(100, finite(data.edgeSoftness, 40))),
     horizontalSpeed: speed,
     minLength,
     maxLength,
@@ -1073,6 +1071,8 @@ function startClassic(data) {
   } else if (single) {
     cycle = 0;
   }
+  // ribbons.js applies ctx.shadowBlur from _options.glow (not ribbonBlur)
+  const classicBlur = Math.max(0, Math.min(80, Number(data.ribbonBlur ?? 30) || 0));
   instance = new RibbonsClassic({
     colorSaturation: sat,
     colorBrightness: (data.colorBrightness ?? 50) + '%',
@@ -1086,7 +1086,8 @@ function startClassic(data) {
     strokeSize: data.strokeSize ?? 1,
     parallaxAmount: data.parallaxAmount ?? -0.3,
     animateSections: data.animateSections !== false,
-    ribbonBlur: data.ribbonBlur ?? 30,
+    glow: classicBlur,
+    ribbonBlur: classicBlur,
     singleColor: single,
     backgroundMode: previewBackgroundMode(data.backgroundMode)
   });
@@ -1132,6 +1133,9 @@ function modernLiveOpts(data) {
     ribbonCount: Math.max(1, Math.round(finite(data.ribbonCount, 3))),
     opacity: Math.max(1, Math.min(100, finite(data.opacity, 100))),
     glow: Math.max(0, finite(data.glow, 66)),
+    blur: Math.max(0, Math.min(80, finite(data.blur, 0))),
+    shaftBrightness: Math.max(0, Math.min(100, finite(data.shaftBrightness, 40))),
+    edgeSoftness: Math.max(0, Math.min(100, finite(data.edgeSoftness, 40))),
     horizontalSpeed: speed,
     minLength,
     maxLength,
@@ -1145,15 +1149,6 @@ function modernLiveOpts(data) {
     curlAmplitude: Math.max(0, finite(data.curlAmplitude, 0.22)),
     singleColor
   };
-}
-
-
-/** Color "mode" bucket — hue number changes stay in 'fixed' (no ribbon respawn). */
-function singleColorModeKey(sc) {
-  if (sc === false || sc === undefined || sc === null || sc === 0) return 'rainbow';
-  if (sc === 667) return 'tricolor';
-  if (sc === 666) return 'gray';
-  return 'fixed';
 }
 
 /** Live patch classic Ribbons._options (no destroy). Returns false if full restart needed. */
@@ -1175,6 +1170,7 @@ function patchClassicLive(data) {
   const prevBg = instance._options && instance._options.backgroundMode;
   const bg = previewBackgroundMode(data.backgroundMode);
 
+  const classicBlur = Math.max(0, Math.min(80, Number(data.ribbonBlur ?? 30) || 0));
   instance.setOptions({
     colorSaturation: sat,
     colorBrightness: (data.colorBrightness ?? 50) + '%',
@@ -1188,8 +1184,9 @@ function patchClassicLive(data) {
     strokeSize: data.strokeSize ?? 1,
     parallaxAmount: data.parallaxAmount ?? -0.3,
     animateSections: data.animateSections !== false,
-    ribbonBlur: data.ribbonBlur ?? 30,
-    glow: data.glow,
+    // ribbons.js shadowBlur reads glow
+    glow: classicBlur,
+    ribbonBlur: classicBlur,
     singleColor: single,
     backgroundMode: bg
   });
@@ -1197,25 +1194,12 @@ function patchClassicLive(data) {
   if (instance._context && instance._options) {
     instance._context.globalAlpha = instance._options.colorAlpha;
   }
-  // Respawn only when color *mode* or background changes — not when custom hue slides
-  const modeChanged = singleColorModeKey(prevSingle) !== singleColorModeKey(single);
-  if (modeChanged || prevBg !== bg) {
+  // Respawn ribbons when color mode or bg changes so new palette applies
+  if (prevSingle !== single || prevBg !== bg) {
     instance._ribbons = [];
     if (typeof instance._drawBackground === 'function') {
       try { instance._drawBackground(); } catch (_) {}
     }
-  } else if (
-    singleColorModeKey(single) === 'fixed' &&
-    prevSingle !== single &&
-    Array.isArray(instance._ribbons)
-  ) {
-    // Live-update hue on existing classic sections
-    instance._ribbons.forEach(function (ribbon) {
-      if (!Array.isArray(ribbon)) return;
-      ribbon.forEach(function (section) {
-        if (section) section.color = single;
-      });
-    });
   }
   // Trim excess ribbons if count dropped
   const max = instance._options.ribbonCount || 3;
@@ -1289,7 +1273,8 @@ function collectForSave() {
     locale: d.locale,
     engine: d.engine,
     endless: !!d.endless,
-    backgroundMode: d.backgroundMode || 'darkGradient',
+    backgroundMode: d.backgroundMode || (d.theme === 'light' ? 'light' : 'darkGradient'),
+    theme: d.theme || (d.backgroundMode === 'light' || d.backgroundMode === 'lightGradient' ? 'light' : 'dark'),
     opacity: d.opacity ?? 100,
     stretched_mode: !!d.stretched_mode,
     selected_displays: d.selected_displays == null ? 'all' : d.selected_displays,
@@ -1314,6 +1299,9 @@ function collectForSave() {
   if (d.engine === 'modern') {
     Object.assign(out, {
       glow: d.glow,
+      blur: d.blur,
+      shaftBrightness: d.shaftBrightness,
+      edgeSoftness: d.edgeSoftness,
       minLength: d.minLength,
       maxLength: d.maxLength,
       minWidth: d.minWidth,
@@ -1368,15 +1356,15 @@ document.querySelectorAll('.locale-btn').forEach((btn) => {
 
 $('ui_theme').addEventListener('change', () => {
   const data = readForm();
-  const resolved = resolveUiTheme(data.ui_theme, data.backgroundMode);
+  const resolved = resolveUiTheme(data.ui_theme, data.backgroundMode, data.theme);
   applyUiTheme(resolved);
 });
 
 const liveIds = [
-  'backgroundMode', 'stretched_mode', 'displays_mode',
+  'backgroundMode', 'theme', 'stretched_mode', 'displays_mode',
   'singleColorMode', 'colorCycleSpeed',
   'ribbonCount', 'horizontalSpeed',
-  'endless', 'opacity', 'glow',
+  'endless', 'opacity', 'glow', 'blur', 'shaftBrightness', 'edgeSoftness',
   'minLength', 'maxLength', 'minWidth', 'maxWidth',
   'minCurl', 'maxCurl', 'curlAmplitude', 'minTwist', 'maxTwist',
   'colorSaturation', 'colorBrightness', 'colorAlpha',
@@ -1418,12 +1406,6 @@ $('btnReset').addEventListener('click', async () => {
   setStatus(t('status_reset'));
 });
 
-$('btnOpenLog').addEventListener('click', async () => {
-  if (ipcRenderer) {
-    ipcRenderer.send('ribbons-settings-open-log');
-  }
-});
-
 let previewPaused = false;
 
 function setPauseUi(paused) {
@@ -1434,42 +1416,45 @@ function setPauseUi(paused) {
   btn.setAttribute('data-i18n', previewPaused ? 'show_now' : 'pause');
 }
 
-$('btnPause')?.addEventListener('click', () => {
-  if (!instance) return;
-  if (!previewPaused) {
-    // same as controller.js send-pause
-    if (typeof instance.pause === 'function') {
-      instance.pause();
-    } else {
-      try {
-        cancelAnimationFrame(window.AnimationId);
-      } catch (_) {}
-      if (instance._sto != null) {
-        try { clearTimeout(instance._sto); } catch (_) {}
+const elements = document.querySelectorAll('#btnPause, #preview');
+elements.forEach(element => {
+  element.addEventListener('click', () => {
+    if (!instance) return;
+    if (!previewPaused) {
+      // same as controller.js send-pause
+      if (typeof instance.pause === 'function') {
+        instance.pause();
+      } else {
+        try {
+          cancelAnimationFrame(window.AnimationId);
+        } catch (_) {}
+        if (instance._sto != null) {
+          try { clearTimeout(instance._sto); } catch (_) {}
+        }
       }
-    }
-    pauseDateTimeAnimation();
-    setPauseUi(true);
-  } else {
-    // same as controller resume path
-    if (typeof instance.resume === 'function') {
-      instance.resume();
-    } else if (typeof instance._onDraw === 'function') {
-      // classic: restart draw loop
-      try {
-        window.AnimationId = requestAnimationFrame(instance._onDraw.bind(instance));
-      } catch (_) {
+      pauseDateTimeAnimation();
+      setPauseUi(true);
+    } else {
+      // same as controller resume path
+      if (typeof instance.resume === 'function') {
+        instance.resume();
+      } else if (typeof instance._onDraw === 'function') {
+        // classic: restart draw loop
+        try {
+          window.AnimationId = requestAnimationFrame(instance._onDraw.bind(instance));
+        } catch (_) {
+          applyPreview(true);
+          return;
+        }
+      } else {
         applyPreview(true);
         return;
       }
-    } else {
-      applyPreview(true);
-      return;
+      resumeDateTimeAnimation();
+      setPauseUi(false);
     }
-    resumeDateTimeAnimation();
-    setPauseUi(false);
-  }
-});
+  });
+})
 
 $('btnCancel').addEventListener('click', () => {
   self.close();

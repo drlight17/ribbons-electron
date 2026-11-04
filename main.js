@@ -256,8 +256,8 @@ function openRibbonsSettings(icon) {
       }
 
       appIcon.setContextMenu(contextMenu);
-      appIcon.setImage(trayIcon);
-      
+      toggleIcon(trayIconPaused);
+
       win_settings.show();
       
       win_settings.on('close', () => {
@@ -276,7 +276,7 @@ function openRibbonsSettings(icon) {
         contextMenu.getMenuItemById(`pause_menu`).enabled = true;
         }
         appIcon.setContextMenu(contextMenu);
-        appIcon.setImage(trayIcon);
+        toggleIcon(trayIcon);
       })
 
       //win_settings.webContents.toggleDevTools();
@@ -393,6 +393,11 @@ function stopScreensaver(display, win, checkid) {
   delete closeBtnAllowedAt[display.id];
 }
 
+// toggle icon paused
+function toggleIcon(icon) {
+    appIcon.setImage(icon);
+}
+
 // toggle play/pause screensaver
 function toggleScreensaver(display, win) {
   if (!paused[display.id]) {
@@ -401,7 +406,7 @@ function toggleScreensaver(display, win) {
     writeLog("Screensaver is paused")
     contextMenu.getMenuItemById(`pause_menu`).enabled = false;
     appIcon.setContextMenu(contextMenu);
-    appIcon.setImage(trayIconPaused);
+    toggleIcon(trayIconPaused);
   } else {
     win.webContents.send('send-stop',true);
     startScreensaver(mainWindow, display, true);
@@ -409,7 +414,7 @@ function toggleScreensaver(display, win) {
     writeLog("Screensaver is resumed")
     contextMenu.getMenuItemById(`pause_menu`).enabled = true;
     appIcon.setContextMenu(contextMenu);
-    appIcon.setImage(trayIcon);
+    toggleIcon(trayIcon);
   }
 }
 
@@ -989,14 +994,29 @@ if (!gotTheLock) {
           });
         }
 
-        // check if opacity is configured and set default 70 value if not
+        // check if opacity is configured and set default 85 value if not
         if (!store.get('opacity')) {
-          store.set('opacity', 70);
+          store.set('opacity', 85);
         }
 
-        // check if glow is configured and set default 66 value if not
+        // check if glow is configured and set default 26 value if not
         if (store.get('glow') === undefined) {
-          store.set('glow', 66);
+          store.set('glow', 26);
+        }
+
+        // check if blur (modern shadowBlur) is configured
+        if (store.get('blur') === undefined) {
+          store.set('blur', 0);
+        }
+
+        // check if shaftBrightness is configured and set default 100 value if not
+        if (store.get('shaftBrightness') === undefined) {
+          store.set('shaftBrightness', 100);
+        }
+
+        // check if edgeSoftness is configured and set default 100 value if not
+        if (store.get('edgeSoftness') === undefined) {
+          store.set('edgeSoftness', 100);
         }
 
         // check if minLength is configured and set default 1 value if not
@@ -1612,6 +1632,9 @@ if (!gotTheLock) {
                 endless: store.get('endless'),
                 opacity: store.get('opacity'),
                 glow: store.get('glow'),
+                blur: store.get('blur'),
+                shaftBrightness: store.get('shaftBrightness'),
+                edgeSoftness: store.get('edgeSoftness'),
                 minLength: store.get('minLength'),
                 maxLength: store.get('maxLength'),
                 minWidth: store.get('minWidth'),

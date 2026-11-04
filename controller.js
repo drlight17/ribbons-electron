@@ -157,6 +157,9 @@ function applyBodyTheme(theme) {
 function start_Ribbons(colorSaturation, colorCycleSpeed, options) {
     stop_Ribbons();
     engine = 'classic';
+    // Classic ribbons.js uses _options.glow for ctx.shadowBlur
+    var classicBlur = options["ribbonBlur"] != null ? options["ribbonBlur"]
+      : (options["glow"] != null ? options["glow"] : 30);
     Ribbons_instance = new Ribbons({
         colorSaturation: colorSaturation,
         colorBrightness: "50%",
@@ -170,7 +173,7 @@ function start_Ribbons(colorSaturation, colorCycleSpeed, options) {
         strokeSize: 1,
         parallaxAmount: -0.3,
         animateSections: true,
-        glow: options["glow"],
+        glow: classicBlur,
         singleColor: options["singleColor"],
         // Canvas-painted background (same modes as modern)
         backgroundMode: options["backgroundMode"] || "darkGradient"
@@ -234,6 +237,9 @@ function mapModernOptions(got) {
         ribbonCount: count,
         opacity: got.opacity != null ? got.opacity : 70,
         glow: got.glow != null ? got.glow : 66,
+        blur: got.blur != null ? got.blur : 0,
+        shaftBrightness: got.shaftBrightness != null ? got.shaftBrightness : 40,
+        edgeSoftness: got.edgeSoftness != null ? got.edgeSoftness : 40,
         horizontalSpeed: got.horizontalSpeed != null ? got.horizontalSpeed : 1.5,
         minLength: got.minLength != null ? got.minLength : 1,
         maxLength: got.maxLength != null ? got.maxLength : 3,

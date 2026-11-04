@@ -55,7 +55,7 @@
         <!-- Background / theme -->
         <div class="group">
           <h2 data-i18n="group_background">Background & theme</h2>
-          <div class="row engine-only" data-engine="modern">
+          <div class="row">
             <label for="backgroundMode" data-i18n="backgroundMode">Background</label>
             <select id="backgroundMode">
               <option value="auto" data-i18n="auto">Auto</option>
@@ -154,6 +154,22 @@
             <label for="glow" data-i18n="glow">Ribbons glow effect</label>
             <span class="value" id="glowVal">66</span>
             <input type="range" id="glow" min="0" max="200" step="1" value="66" />
+          </div>
+          <div class="row">
+            <label for="blur" data-i18n="blur">Soft blur (shadow)</label>
+            <span class="value" id="blurVal">0</span>
+            <input type="range" id="blur" min="0" max="80" step="1" value="0" />
+            <p class="hint" data-i18n="hint_blur">Canvas shadowBlur halo — separate from glow</p>
+          </div>
+          <div class="row">
+            <label for="shaftBrightness" data-i18n="shaftBrightness">Center light shaft</label>
+            <span class="value" id="shaftBrightnessVal">40%</span>
+            <input type="range" id="shaftBrightness" min="0" max="100" step="1" value="40" />
+          </div>
+          <div class="row">
+            <label for="edgeSoftness" data-i18n="edgeSoftness">Edge softness</label>
+            <span class="value" id="edgeSoftnessVal">40%</span>
+            <input type="range" id="edgeSoftness" min="0" max="100" step="1" value="40" />
           </div>
         </div>
 

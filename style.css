@@ -412,7 +412,7 @@ body.settings .side-actions {
     flex: none;
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    /*gap: 8px;*/
     padding: 12px 14px;
     border-top: 1px solid var(--line);
     background: var(--panel-2);
