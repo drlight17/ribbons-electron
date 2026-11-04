@@ -1,5 +1,6 @@
-# <img align="center" src="https://raw.githubusercontent.com/drlight17/ribbons-electron/master/banner.png">
+# <img align="center" src="https://raw.githubusercontent.com/drlight17/ribbons-electron/master/ribbons publish.png">
 Famous windows-like Ribbons screensaver made with js and Electron wrapped for multi platform support
+
 
 <table>
   <thead>
