@@ -206,6 +206,7 @@ const DEFAULTS = {
   ribbonCount: 5,
   horizontalSpeed: 1.5,
   endless: true,
+  freezeBeforeFade: true,
   opacity: 85 ,
   glow: 26,
   blur: 0,
@@ -744,6 +745,7 @@ function readForm() {
       backgroundMode,
       theme,
       endless: $('endless').checked,
+      freezeBeforeFade: !!$('freezeBeforeFade')?.checked,
       opacity: +$('opacity').value,
       glow: +$('glow').value,
       blur: +($('blur')?.value ?? 0),
@@ -872,6 +874,7 @@ async function writeForm(opts) {
   if (engine === 'modern') {
     $('backgroundMode').value = o.backgroundMode || 'darkGradient';
     $('endless').checked = asBool(o.endless);
+    if ($('freezeBeforeFade')) $('freezeBeforeFade').checked = asBool(o.freezeBeforeFade, true);
     $('opacity').value = o.opacity ?? 100;
     $('glow').value = o.glow ?? 66;
     if ($('blur')) $('blur').value = o.blur ?? 0;
@@ -1037,6 +1040,7 @@ function startModern(data) {
     minWidth,
     maxWidth,
     endless: !!data.endless,
+    freezeBeforeFade: data.freezeBeforeFade !== false,
     minCurl,
     maxCurl,
     minTwist,
@@ -1142,6 +1146,7 @@ function modernLiveOpts(data) {
     minWidth,
     maxWidth,
     endless: !!data.endless,
+    freezeBeforeFade: data.freezeBeforeFade !== false,
     minCurl,
     maxCurl,
     minTwist,
@@ -1298,6 +1303,7 @@ function collectForSave() {
   };
   if (d.engine === 'modern') {
     Object.assign(out, {
+      freezeBeforeFade: d.freezeBeforeFade !== false,
       glow: d.glow,
       blur: d.blur,
       shaftBrightness: d.shaftBrightness,
@@ -1364,7 +1370,7 @@ const liveIds = [
   'backgroundMode', 'theme', 'stretched_mode', 'displays_mode',
   'singleColorMode', 'colorCycleSpeed',
   'ribbonCount', 'horizontalSpeed',
-  'endless', 'opacity', 'glow', 'blur', 'shaftBrightness', 'edgeSoftness',
+  'endless', 'freezeBeforeFade', 'opacity', 'glow', 'blur', 'shaftBrightness', 'edgeSoftness',
   'minLength', 'maxLength', 'minWidth', 'maxWidth',
   'minCurl', 'maxCurl', 'curlAmplitude', 'minTwist', 'maxTwist',
   'colorSaturation', 'colorBrightness', 'colorAlpha',

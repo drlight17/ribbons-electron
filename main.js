@@ -1069,6 +1069,11 @@ if (!gotTheLock) {
           store.set('endless', true);
         }
 
+        // check if freezeBeforeFade is configured and set default true value if not
+        if (store.get('freezeBeforeFade') === undefined) {
+          store.set('freezeBeforeFade', true);
+        }
+
         // check if ui_theme is configured and set default auto value if not
         if (!store.get('ui_theme')) {
           store.set('ui_theme', 'auto');
@@ -1630,6 +1635,7 @@ if (!gotTheLock) {
                 closeBtnTitle: i18n.__('close'),
                 engine: store.get('engine'),
                 endless: store.get('endless'),
+                freezeBeforeFade: store.get('freezeBeforeFade') !== false,
                 opacity: store.get('opacity'),
                 glow: store.get('glow'),
                 blur: store.get('blur'),

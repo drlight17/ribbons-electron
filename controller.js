@@ -251,6 +251,7 @@ function mapModernOptions(got) {
         maxTwist: got.maxTwist != null ? got.maxTwist : 0,
         curlAmplitude: got.curlAmplitude != null ? got.curlAmplitude : 0.22,
         endless: !!got.endless,
+        freezeBeforeFade: got.freezeBeforeFade !== false,
         zIndex: -1
     };
 }

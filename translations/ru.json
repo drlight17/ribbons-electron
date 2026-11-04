@@ -50,6 +50,7 @@
     "logging_open": "Открыть лог файл",
     "randomize_datetime_pos": "Случайно менять положение",
     "datetime_front": "Показывать поверх",
+    "freezeBeforeFade": "Замирать перед исчезновением",
     "exit": "Выйти",
     "yes": "Да",
     "no": "Нет",

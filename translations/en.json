@@ -50,6 +50,7 @@
     "logging_open": "Open log file",
     "randomize_datetime_pos": "Randomize position",
     "datetime_front": "Show on top",
+    "freezeBeforeFade": "Freeze before fadeout",
     "exit": "Exit",
     "yes": "Yes",
     "no": "No",

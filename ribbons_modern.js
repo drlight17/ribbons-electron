@@ -89,6 +89,11 @@ var RibbonsModern = (function () {
             // if true, ribbons grow from edge instead of traveling
             endless: false,
             /**
+             * If true, freeze path position & depth in the last ~25% of life
+             * so the ribbon fades out in place instead of sliding away.
+             */
+            freezeBeforeFade: true,
+            /**
              * Path curl (how many times the centerline bends / winds).
              * Unit = turns; 1 ≈ full 360° of lateral wave along the ribbon.
              * 0 = nearly straight cubic (old look), 1 = up to one full wind,
@@ -553,9 +558,10 @@ var RibbonsModern = (function () {
             var travel = opts.endless ? 0 : clamp((progress - 0.53) / 0.47, 0, 1);
             var start = opts.endless ? 0 : travel * (1 + visibleSpan) - visibleSpan;
             var end = opts.endless ? reveal : start + visibleSpan * reveal;
-            // Freeze pose before disappearance — stop sliding along the path
+            // Optional freeze before fade — stop sliding along the path
+            var doFreeze = opts.freezeBeforeFade !== false;
             var freezeAt = 0.75;
-            if (progress >= freezeAt) {
+            if (doFreeze && progress >= freezeAt) {
                 if (r._fzS == null) {
                     r._fzS = start;
                     r._fzE = end;
@@ -1005,9 +1011,10 @@ var RibbonsModern = (function () {
                 for (i = 0; i < this._ribbons.length; i++) {
                     var ribbon = this._ribbons[i];
                     ribbon.age += dt * 1.7 * speed;
-                    // Stop depth wobble once pose is frozen (last 25% of life)
+                    // Stop depth wobble once pose is frozen (if option enabled)
                     var pr = ribbon.life > 0 ? ribbon.age / ribbon.life : 1;
-                    if (pr < 0.75) {
+                    var freezeOn = this._options.freezeBeforeFade !== false;
+                    if (!freezeOn || pr < 0.75) {
                         ribbon.depthTime += dt * ribbon.depthSpeed * speed;
                     }
                     if (ribbon.age >= ribbon.life) {
