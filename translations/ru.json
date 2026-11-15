@@ -133,5 +133,13 @@
     "pos_top_right": "Верхний правый",
     "pos_bottom_left": "Нижний левый",
     "pos_bottom_right": "Нижний правый",
-    "close": "Закрыть заставку"
+    "close": "Закрыть заставку",
+    "show":"Показать",
+    "check_new_version": "Проверить обновления",
+    "new_version": "Доступна новая версия",
+    "new_version_ask": "Посетить страницу для загрузки?",
+    "new_version_install": "Обновить приложение",
+    "new_version_no": "Нет новых версий",
+    "newer_version":"У вас более новая версия",
+    "new_version_remember": "Не спрашивать до следующей версии"
 }

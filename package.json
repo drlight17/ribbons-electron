@@ -12,9 +12,10 @@
   "type": "module",
   "icon": "icon.png",
   "main": "./main.js",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "Yuri Samoilov <root@drlight.fun>",
   "homepage": "https://github.com/drlight17/ribbons-electron",
+  "apiLink": "https://api.github.com/repos/drlight17/ribbons-electron",
   "build": {
     "appId": "com.electron.ribbons-electron",
     "productName": "Ribbons screensaver",
@@ -83,7 +84,8 @@
       ],
       "asarUnpack": [
         "./icon.ico",
-        "./iconPaused.ico"
+        "./iconPaused.ico",
+        "./UPDATE_BLOCK"
       ]
     },
     "linux": {
@@ -118,21 +120,22 @@
       ],
       "asarUnpack": [
         "./icon.png",
-        "./iconPaused.png"
+        "./iconPaused.png",
+        "./UPDATE_BLOCK"
       ]
     }
   },
   "scripts": {
-    "build-rpm": "electron-builder --linux rpm",
-    "build-deb": "electron-builder --linux deb",
-    "build-targz": "electron-builder --linux tar.gz",
-    "build-flatpak": "electron-builder --linux flatpak",
+    "build-rpm": "touch UPDATE_BLOCK ; electron-builder --linux rpm ; rm -f UPDATE_BLOCK",
+    "build-deb": "touch UPDATE_BLOCK ; electron-builder --linux deb ; rm -f UPDATE_BLOCK",
+    "build-targz": "touch UPDATE_BLOCK ; electron-builder --linux tar.gz ; rm -f UPDATE_BLOCK",
     "build-AppImage": "electron-builder --linux AppImage",
     "build-exe": "electron-builder --windows nsis",
-    "build-msi": "electron-builder --windows msi",
-    "build-zip": "electron-builder --windows zip",
-    "build-dmg": "electron-builder --mac dmg",
-    "dist": "electron-builder",
+    "build-msi": "type nul > UPDATE_BLOCK ; electron-builder --win msi ; del /f UPDATE_BLOCK",
+    "build-zip": "type nul > UPDATE_BLOCK ; electron-builder --windows zip ; del /f UPDATE_BLOCK",
+    "build-zip-mac": "touch UPDATE_BLOCK ; electron-builder --mac zip ; rm -f UPDATE_BLOCK",
+    "build-dmg": "touch UPDATE_BLOCK ; electron-builder --mac dmg ; rm -f UPDATE_BLOCK",
+    "dist": "npm run build-rpm ; npm run build-deb ; npm run build-targz ; npm run build-AppImage ; npm run build-dmg ; npm run build-zip-mac ; npm run build-zip ; npm run build-msi ; npm run build-exe ",
     "start": "electron ."
   },
   "dependencies": {
@@ -143,9 +146,11 @@
     "electron-native-screenshare": "latest",
     "electron-prompt": "latest",
     "electron-store": "latest",
+    "electron-updater": "^4.0.0",
     "glasstron": "latest",
     "node-desktop-idle-v2": "latest",
-    "node-hid": "latest"
+    "node-hid": "latest",
+    "semver": "latest"
   },
   "devDependencies": {
     "electron": "^31",

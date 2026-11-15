@@ -133,5 +133,13 @@
     "pos_top_right": "Top right",
     "pos_bottom_left": "Bottom left",
     "pos_bottom_right": "Bottom right",
-    "close": "Close screensaver"
+    "close": "Close screensaver",
+    "show":"Show",
+    "check_new_version": "Check for updates",
+    "new_version":"New version is available",
+    "new_version_ask": "Do you want to visit download page?",
+    "new_version_no": "No new versions available",
+    "new_version_install": "Update app",
+    "newer_version":"You are using a newer version",
+    "new_version_remember": "Don't ask until the next release"
 }

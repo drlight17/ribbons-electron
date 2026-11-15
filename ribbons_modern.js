@@ -58,9 +58,9 @@ var RibbonsModern = (function () {
             // how many ribbons on screen
             ribbonCount: 5,
             // opacity 0..100
-            opacity: 100,
+            opacity: 85,
             // glow intensity 0..200 (additive silhouette fill — not canvas shadowBlur)
-            glow: 66,
+            glow: 26,
             /**
              * Soft bloom via ctx.shadowBlur applied to the center shaft only
              * (does not touch ribbon body / edgeSoftness). 0 = off; 80 = strong.
@@ -71,21 +71,21 @@ var RibbonsModern = (function () {
              * 0 = off; at 100 outer shaft spans ~72% of ribbon width
              * (more than half) with a soft gradient from hot core to edges.
              */
-            shaftBrightness: 40,
+            shaftBrightness: 100,
             /**
              * Edge softness (0..100).
              * 0 = hard opaque edges (classic look);
              * 100 = strong soft fade of ribbon borders into transparency.
              */
-            edgeSoftness: 40,
+            edgeSoftness: 100,
             // animation speed multiplier
             horizontalSpeed: 1.5,
             // visible span factors
             minLength: 1,
-            maxLength: 3,
+            maxLength: 6,
             // ribbon width in px
-            minWidth: 10,
-            maxWidth: 30,
+            minWidth: 25,
+            maxWidth: 55,
             // if true, ribbons grow from edge instead of traveling
             endless: false,
             /**
@@ -99,20 +99,20 @@ var RibbonsModern = (function () {
              * 0 = nearly straight cubic (old look), 1 = up to one full wind,
              * >1 = multiple bends (e.g. 2 = two full periods).
              */
-            minCurl: 0.35,
-            maxCurl: 1.0,
+            minCurl: 0,
+            maxCurl: 0.15,
             /**
              * Surface twist (corkscrew of the ribbon strip around its axis).
              * Unit = turns; 1 = 360° twist from start to end of the path.
              * 0 = flat strip, 0.5 = 180° flip, 1 = full twist.
              */
             minTwist: 0,
-            maxTwist: 1.0,
+            maxTwist: 0,
             /**
              * Lateral amplitude of curl as a fraction of normalized screen space
              * (scaled further per-ribbon). Higher = wider loops.
              */
-            curlAmplitude: 0.22,
+            curlAmplitude: 0.05,
             // append canvas to this element (default: document.body)
             container: null,
             // z-index of ribbons canvas (bg canvas is zIndex - 1)
@@ -379,10 +379,10 @@ var RibbonsModern = (function () {
             var curlHarmonic = 2.0;
             var curlHarmonicMix = rand(0.05, 0.15);
             var baseAmp = this._options.curlAmplitude * rand(0.75, 1.05);
-            var curlAmp = Math.min(0.22, baseAmp * (0.45 + 0.3 * clamp(curlTurns, 0, 2)));
+            var curlAmp = Math.min(0.18, baseAmp * (0.4 + 0.28 * clamp(curlTurns, 0, 2)));
             // Spiral bias: growing lateral amp along path when curl is high
-            var spiralBias = curlTurns > 0.7
-                ? clamp((curlTurns - 0.5) / 1.8, 0, 1) * rand(0.4, 1)
+            var spiralBias = curlTurns > 0.9
+                ? clamp((curlTurns - 0.7) / 2.0, 0, 1) * rand(0.25, 0.7)
                 : 0;
             var spread = 0.35 + 0.3 * clamp(curlTurns, 0, 2);
             return {
@@ -500,16 +500,28 @@ var RibbonsModern = (function () {
             // Unit perpendicular in pixel space
             var ppx = -tpy;
             var ppy = tpx;
-            // Multi-turn lateral wave — pure sinusoid
+            // Multi-turn lateral wave on the cubic.
+            // Cusps ("zalomy") appear iff lateral speed exceeds longitudinal speed:
+            //   |d/du (A sin φ)| ≈ |A|·2π·|turns|  ≰  |c'(u)|
+            // Clamp A so the inequality always holds → path stays regular (no folds).
             var turns = r.curlTurns || 0;
+            var turnsAbs = Math.abs(turns);
             var phase = (r.curlPhase || 0) + u * Math.PI * 2 * turns * (r.curlDir || 1);
-            var harm = Math.min(0.08, r.curlHarmonicMix || 0);
-            var wave = Math.sin(phase) + harm * Math.sin(phase * 2.0);
+            var wave = Math.sin(phase); // fundamental only — harmonics seed sharp kinks
             var uu = clamp(u, 0, 1);
             var spiralBias = clamp(r.spiralBias || 0, 0, 1);
-            var envelope = Math.sin(Math.PI * uu) * (1 - spiralBias * 0.7) + Math.pow(uu, 0.75) * spiralBias;
+            // Envelope: soft ends; spiral bias grows gently (not enough to break the speed bound)
+            var envelope = Math.sin(Math.PI * uu) * (1 - spiralBias * 0.45)
+                + Math.pow(uu, 0.85) * spiralBias * 0.45;
             var unit = Math.min(W, H);
-            var ampPx = Math.min(0.22, (r.curlAmp || 0)) * envelope * unit;
+            var ampPx = Math.min(0.2, (r.curlAmp || 0)) * envelope * unit;
+            // Longitudinal speed of the base cubic in pixel space (px per unit-u)
+            var longMag = Math.hypot(tnx * W, tny * H) || 1;
+            if (turnsAbs > 0.02) {
+                // Safety 0.7: leave headroom for envelope slope + cubic curvature
+                var maxAmp = (longMag * 0.7) / (Math.PI * 2 * turnsAbs);
+                if (ampPx > maxAmp) ampPx = maxAmp;
+            }
             var x = nx * W + ppx * wave * ampPx;
             var y = ny * H + ppy * wave * ampPx;
             // Gentler depth — high-frequency z was causing shimmering kinks under perspective

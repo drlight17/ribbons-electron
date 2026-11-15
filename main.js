@@ -1,4 +1,5 @@
 import { app, powerMonitor, clipboard, BrowserWindow, desktopCapturer, session, Menu, MenuItem, Tray, nativeImage, ipcMain, screen, nativeTheme, dialog, shell, globalShortcut } from 'electron';
+
 import * as glasstron from 'glasstron';
 import * as path from 'path';
 import { fileURLToPath } from "url";
@@ -20,6 +21,11 @@ const require = createRequire(import.meta.url);
 //const robot = require('robotjs');
 
 const HID = require('node-hid');
+
+const semver = require('semver');
+
+const { autoUpdater } = require('electron-updater');
+const { autoUpdater: nativeUpdater } = require('electron');
 
 const isMac = process.platform === 'darwin'
 const isWindows = process.platform === 'win32'
@@ -81,6 +87,9 @@ let curWindow = {};
 var isFullscreen = {};
 let contextMenu;
 const closeBtnAllowedAt = {};
+let isDialogOpen = false;
+let update_block = false;
+let appIconMenuTemplate = [];
 
 let audioCheckInterval;
 let sumSquares = 0;
@@ -111,6 +120,11 @@ const RMS_THRESHOLD = 0.01;
   }
 }*/
 
+//check for UPDATE_BLOCK, process icons for platforms and inialize electron store
+
+if ((fs.existsSync(path.resolve(getResourceDirectory(), "UPDATE_BLOCK"))) /*|| (!app.isPackaged)*/) {
+  update_block = true;
+}
 
 if (isLinux) {
   var iconPath = path.resolve(getResourceDirectory(), "icon.png");
@@ -202,6 +216,238 @@ function toggleMenus(sw){
   appIcon.setContextMenu(contextMenu);
   appIcon.setImage(trayIcon);
 }
+
+function updateMenu(releaseUrl, latestVersion) {
+  try {
+
+    if ((releaseUrl) && (latestVersion)) {
+      //writeLog(appIconMenuTemplate, true)
+      appIconMenuTemplate[5].submenu[1].label = '🔥  ' + i18n.__('new_version') + ": " + latestVersion;
+      appIconMenuTemplate[5].submenu[1].enabled = true;
+      appIconMenuTemplate[5].submenu[1].click = () => {
+        //shell.openExternal(releaseUrl);
+        if (isDialogOpen) {
+          return;
+        }
+        checkNewVersion(app.getVersion());
+      };
+      appIconMenuTemplate[5].submenu[2].enabled = false;
+    }
+
+    const contextMenu = Menu.buildFromTemplate(appIconMenuTemplate);
+    appIcon.setContextMenu(contextMenu);
+  } catch (err) {
+    writeLog('Failed to update menu: ' + err);
+  }
+};
+
+// *************** update zone *************************
+
+async function openNewVersionDialog(releaseUrl, latestVersion) {
+  try {
+    if (isDialogOpen) {
+      return;
+    }
+
+    let remembered = false;
+    try {
+      const rememberData = JSON.parse(store.get('new_version_remember'));
+      remembered = Boolean(rememberData[latestVersion]);
+    } catch (err) {
+      writeLog(err)
+    }
+
+    updateMenu(releaseUrl, latestVersion);
+
+    if (remembered) {
+      return;
+    }
+
+    isDialogOpen = true;
+    let readChanges = false;
+
+    const options = {
+      type: 'info',
+      buttons: [i18n.__('yes_button'), i18n.__('no_button'), ...(!update_block ? [i18n.__('new_version_install')] : [])],
+      defaultId: 0,
+      message: i18n.__('new_version') + ": " + latestVersion,
+      detail: i18n.__('new_version_ask'),
+      checkboxLabel: i18n.__('new_version_remember'),
+      checkboxChecked: false,
+    };
+
+    dialog.showMessageBox(options)
+      .then(async(result) => {
+        const decisionData = {};
+
+        switch (result.response) {
+          case 0: // Yes
+            decisionData[latestVersion] = result.checkboxChecked;
+            store.set('new_version_remember', JSON.stringify(decisionData));
+            shell.openExternal(releaseUrl);
+            break;
+
+          case 1: // No
+            decisionData[latestVersion] = result.checkboxChecked;
+            store.set('new_version_remember', JSON.stringify(decisionData));
+            break;
+
+          /*case 2: // show changelog
+
+            shell.openExternal(`${packageJson.homepage}/blob/main/CHANGES.md`);
+            readChanges = true;
+
+            break;
+          */
+
+          case 2: // install
+            // if AppImage
+            if (isLinux) {
+              if (process.env.APPIMAGE) {
+                writeLog("You app is AppImage, so trying to update.")
+                selfUpdate();
+
+                await dialog.showMessageBox({
+                  type: 'info',
+                  message: i18n.__('wake_up_wait'),
+                  detail: i18n.__('message31')
+                });
+              }
+            } else {
+              if (app.isPackaged) {
+                writeLog("You app is properly installed, so trying to update.")
+                selfUpdate();
+                await dialog.showMessageBox({
+                  type: 'info',
+                  message: i18n.__('wake_up_wait'),
+                  detail: i18n.__('message31')
+                });
+              }
+            }
+            break;
+        }
+      })
+      .catch((err) => {
+        writeLog('Dialog was closed unexpectedly or error occurred: ' + err);
+      })
+      .finally(() => {
+        isDialogOpen = false;
+        if (readChanges) {
+          openNewVersionDialog(releaseUrl, latestVersion);
+        }
+      });
+    }
+    catch(err) {
+      writeLog(`Error in openNewVersionDialog: ${err}`)
+    }
+}
+
+async function checkNewVersion(currentVersion, callDialog) {
+  const cachedVersion = store.get('latestVersion');
+  const cachedUrl = store.get('releaseUrl');
+
+  const apiUrl = `${packageJson.apiLink}/releases/latest`;
+
+  try {
+    let latestVersion;
+    let releaseUrl;
+    if (!cachedVersion && !cachedUrl) {
+
+      writeLog("Fetch new version info from github.")
+      const response = await fetch(apiUrl);
+      const data = await response.json();
+
+      latestVersion = data.tag_name;
+      releaseUrl = data.html_url;
+
+      store.set('latestVersion', latestVersion);
+      store.set('releaseUrl', releaseUrl);
+
+    } else {
+      latestVersion = cachedVersion;
+      releaseUrl = cachedUrl;
+    }
+
+    //const comparison = -1;
+    // TODO comment above and uncomment below in prod
+    const comparison = semver.compare(currentVersion, latestVersion)
+    
+
+    if (comparison === 0) {
+      if (callDialog && !isDialogOpen) {
+        isDialogOpen = true;
+        await dialog.showMessageBox({
+          type: 'info',
+          message: i18n.__('new_version_no'),
+          //detail: i18n.__('message31')
+        })
+        .then((result) => {
+           isDialogOpen = false;
+        })
+      }
+      writeLog("You are using the latest version.");
+    } else if (comparison < 0) {
+      writeLog("A new version is available: " + latestVersion);
+      openNewVersionDialog(releaseUrl, latestVersion)
+    } else {
+      if (callDialog && !isDialogOpen) {
+        isDialogOpen = true;
+        await dialog.showMessageBox({
+          type: 'info',
+          message: i18n.__('newer_version'),
+          //detail: i18n.__('message31')
+        })
+        .then((result) => {
+           isDialogOpen = false;
+        })
+      }
+        writeLog("You are using a newer version.");
+    }
+
+  } catch (error) {
+    writeLog('Error fetching the latest release:' + error);
+  }
+}
+
+let updateReady = false;
+
+autoUpdater.on('update-downloaded', (info) => {
+    writeLog(`[UPDATER] Downloaded: ${info.version}`);
+    updateReady = true;
+
+    setTimeout(() => {
+        writeLog('[UPDATER] Installing...');
+        // force close all main windows to complete install
+        app.removeAllListeners('before-quit');
+        app.removeAllListeners('window-all-closed');
+
+        for (let [index, account] of Object.entries(loginData.accounts)) {
+          win_main.id[`${account.username}:${account.url}`].window.removeAllListeners('close');
+          win_main.id[`${account.username}:${account.url}`].window.close();
+        }
+
+        nativeUpdater.once('before-quit-for-update', () => {
+            app.exit();
+        });
+
+        autoUpdater.quitAndInstall(true, true);
+    }, 1000);
+});
+
+async function selfUpdate() {
+    try {
+        writeLog('[UPDATER] Checking for update');
+
+        const result = await autoUpdater.checkForUpdates();
+
+        if (!result?.updateInfo) {
+            writeLog('[UPDATER] No update');
+        }
+    } catch (err) {
+        writeLog(`[UPDATER] Failed: ${err}`);
+    }
+}
+// ******************************************************
 
 function openRibbonsSettings(icon) {
   try {
@@ -1029,24 +1275,24 @@ if (!gotTheLock) {
           store.set('maxLength', 6);
         }
 
-        // check if minWidth is configured and set default 10 value if not
+        // check if minWidth is configured and set default 25 value if not
         if (store.get('minWidth') === undefined) {
-          store.set('minWidth', 10);
+          store.set('minWidth', 25);
         }
 
-        // check if maxWidth is configured and set default 60 value if not
+        // check if maxWidth is configured and set default 55 value if not
         if (store.get('maxWidth') === undefined) {
-          store.set('maxWidth', 60);
+          store.set('maxWidth', 55);
         }
 
-        // check if minCurl is configured and set default 1 value if not
+        // check if minCurl is configured and set default 0 value if not
         if (store.get('minCurl') === undefined) {
-          store.set('minCurl', 1);
+          store.set('minCurl', 0);
         }
 
-        // check if maxCurl is configured and set default 3 value if not
+        // check if maxCurl is configured and set default 0.15 value if not
         if (store.get('maxCurl') === undefined) {
-          store.set('maxCurl', 3);
+          store.set('maxCurl', 0.15);
         }
 
         // check if minTwist is configured and set default 0 value if not
@@ -1059,9 +1305,9 @@ if (!gotTheLock) {
           store.set('maxTwist', 0);
         }
 
-        // check if curlAmplitude is configured and set default 0.22 value if not
+        // check if curlAmplitude is configured and set default 0.05 value if not
         if (store.get('curlAmplitude') === undefined) {
-          store.set('curlAmplitude', 0.22);
+          store.set('curlAmplitude', 0.05);
         }
 
         // check if endless is configured and set default true value if not
@@ -1171,7 +1417,7 @@ if (!gotTheLock) {
 
         var appIcon = null;
 
-        let appIconMenuTemplate = [
+        appIconMenuTemplate = [
 
             {
               label: '⏵  ' + i18n.__('show_now'),
@@ -1210,10 +1456,29 @@ if (!gotTheLock) {
               }
             },
             {
-              label : 'ℹ️  ' + i18n.__('about'),
-              click: () => {
-                app.showAboutPanel();
-              }
+              label: 'ℹ️  ' + i18n.__('about'),
+              // for linux compatibility
+              submenu: [{
+                  label: 'ℹ️  ' + i18n.__('show'),
+                  click: () => {
+                    //updateAbout();
+
+                    setTimeout(()=>{
+                      app.showAboutPanel();
+                    }, 200)
+                  },
+                },
+                {
+                  label: '✗  ' + i18n.__('new_version_no'),
+                  enabled: false
+                },
+                {
+                  label : '🔎  ' + i18n.__('check_new_version'),
+                  click: () => {
+                     checkNewVersion(app.getVersion(), true);
+                  }
+                }
+              ]
             },
             { type: 'separator' },
             {
@@ -1269,6 +1534,14 @@ if (!gotTheLock) {
         // This method will be called when Electron has finished
         // initialization and is ready to create browser windows.
         app.on('ready', async function() {
+
+          // check version in every hour with 3 sec delay for the first time
+          setTimeout(() => {
+            checkNewVersion(app.getVersion());
+            setInterval(() => {
+              checkNewVersion(app.getVersion());
+            }, 60 * 60 * 1000);
+          }, 3000);
 
           // settings window IPC (once)
           registerRibbonsSettingsIpc();
@@ -1467,7 +1740,7 @@ if (!gotTheLock) {
           });
 
 
-          const deviceCache = new Map();
+          //const deviceCache = new Map();
           let number_of_hid_devices = 0;
 
           const checkDevices = () => {
@@ -1512,17 +1785,19 @@ if (!gotTheLock) {
             writeLog('Skip globalShortcut registation in the old KDE Plasma 5 to prevent gui issues')
           }
 
-          // register esc button to stopScreensaver close button event - NO need in system-wide
-          /*if (!isKDEPlasma5()) {
-            globalShortcut.register('Escape', (event) => {
-              writeLog("Esc button is pushed. Stopping screensaver at all displays.");
+          // register Alt+Shift+Escape button to restartApp close button event - NO need in system-wide
+          if (!isKDEPlasma5()) {
+            globalShortcut.register('Alt+Shift+Escape', (event) => {
+              writeLog("Alt+Shift+Escape is pressed. Restart app!");
+              restartApp();
+              /*writeLog("Alt+Shift+Escape is pressed. Stopping screensaver at all displays.");
               displays.forEach((display) => {
                 stopScreensaver(display, mainWindow[display.id], this);
-              });
+              });*/
             })
           } else {
             writeLog('Skip globalShortcut registation in the old KDE Plasma 5 to prevent gui issues')
-          }*/
+          }
           
 
           if (displays.length > 1) {
