@@ -80,10 +80,11 @@ npm start
 ```
 In dev mode config path includes '-dev'
 
-To build all platform distributives at once use:
+To build all current platform distributives at once use:
 ```
-npm run dist
+npm run build-xxx
 ```
+where `xxx` could be `win`, `mac` or `linux`
 Or you can build specific dist. For example linux rpm package:
 ```
 npm run build-rpm
