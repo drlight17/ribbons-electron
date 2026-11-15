@@ -89,7 +89,7 @@ Or you can build specific dist. For example linux rpm package:
 ```
 npm run build-rpm
 ```
-If there are any module errors try to `npx electron-rebuild` before every `npm start` or `npm run dist`.
+If there are any module errors try to `npx electron-rebuild` before every `npm start` or `npm run build-`.
 
 Also check [package.json](package.json)
 
