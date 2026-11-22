@@ -1,3 +1,4 @@
+# Project was ported to Tauri framework and is [here](https://github.com/drlight17/ribbons-tauri) now. This repo is archived.
 # <img align="center" src="https://raw.githubusercontent.com/drlight17/ribbons-electron/master/ribbons publish.png">
 Famous windows-like Ribbons screensaver made with js and Electron wrapped for multi platform support
 
