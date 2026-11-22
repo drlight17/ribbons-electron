@@ -1,1 +1,0 @@
-{"default":{"identifier":"default","description":"Capabilities for the screensaver and settings webviews","local":true,"windows":["*"],"permissions":["core:default","core:event:default","core:window:allow-close","dialog:default"]}}
