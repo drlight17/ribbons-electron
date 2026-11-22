@@ -1,6 +1,5 @@
-# <img align="center" src="https://raw.githubusercontent.com/drlight17/ribbons-electron/master/ribbons publish.png">
-Famous windows-like Ribbons screensaver made with js and Electron wrapped for multi platform support
-
+# <img align="center" src="https://raw.githubusercontent.com/drlight17/ribbons-tauri/master/ribbons publish.png">
+Famous Windows-like Ribbons Screensaver rewritten for multi-platform support with **Tauri 2 (Rust)**.
 
 <table>
   <thead>
@@ -12,91 +11,124 @@ Famous windows-like Ribbons screensaver made with js and Electron wrapped for mu
   <tbody>
     <tr>
       <td><strong>New modern</strong></td>
-      <td><img src="https://raw.githubusercontent.com/drlight17/ribbons-electron/master/ribbons_modern-example.gif" width="100%"></td>
+      <td><img src="https://raw.githubusercontent.com/drlight17/ribbons-tauri/master/ribbons_modern-example.gif" width="100%"></td>
     </tr>
     <tr>
       <td><strong>Classic polygon</strong></td>
-      <td><img src="https://raw.githubusercontent.com/drlight17/ribbons-electron/master/ribbons-example.gif" width="100%"></td>
+      <td><img src="https://raw.githubusercontent.com/drlight17/ribbons-tauri/master/ribbons-example.gif" width="100%"></td>
     </tr>
   </tbody>
 </table>
 
 ## Minimum OS requirements
-MacOS 13 (since [1.0.0-RC1](https://github.com/drlight17/ribbons-electron/releases/1.0.0-RC1)), Windows 10+, Linux with modern kernel version (>=6.x) and PipeWire 
 
-## 📦 Download and install
+- macOS 14.6+
+- Windows 10+
+- Linux with a modern kernel (>= 6.x) and PipeWire/PulseAudio
 
-Go to landing page https://ribbons.drlight.fun, download your platform latest version and follow installation
+## Download and install
 
----
+Go to the landing page https://ribbons.drlight.fun, download the latest build for your platform and follow the installer.
 
-## Supported settings
-All app settings are saved in the local user folder in file config.json:
-- Windows 10 and newer: `%AppData%\Ribbons screensaver`
-- Linux `~/.config/Ribbons screensaver`
-- MacOS: `~/Library/Application Support/Ribbons screensaver`
+## Settings
 
-## Usage
-This app is created to be used as screensaver with idle system detect to run fullscreen animation. For current alpha version it isn't supposed to be:
-- "native" windows scr app as there are no native winapi preview and settings implementation
-- "native" linux xscreensaver app as there are no plans to develop something for xscreensaver api
-- "native" macos screensaver app as there are no plans to develop something for Objective-C and Cocoa framework
+Settings are stored in `config.json` in the same per-user locations as before:
+
+- Windows: `%AppData%\Ribbons Screensaver`
+- Linux: `~/.config/Ribbons Screensaver`
+- macOS: `~/Library/Application Support/Ribbons Screensaver`
+
+Development builds use a `-dev` suffix.
 
 ## Linux notes
-Due to [wctx](https://github.com/slightlyfaulty/wctx) this app supports other application's fullscreen to prevent running screensaver when something is run in this mode (since ver. 1.0.0-RC1). But for now it supports the folowing desktop environments in Wayland and X11:
-- KDE Plasma 5+
-- GNOME 45+
-Any other DE works with X11, but Wayland is not officially supported due to it's different compositor's architectures. You could check changes in the [official wctx](https://github.com/slightlyfaulty/wctx) github repo yourself.
+
+- Fullscreen detection uses **wctx** on Wayland and **xprop** on X11. On Wayland, install `wctx` and enable its user daemon. On X11, install `xprop`.
+- Idle/user activity is read from `/dev/input/event*` (evdev), which is reliable on KWin/Wayland where `ScreenSaver.GetActiveTime` often returns 0. Add the user to the `input` group and log in again:
+  `sudo usermod -aG input $USER`.
+- Screen lock/suspend events use freedesktop DBus services (`org.freedesktop.ScreenSaver`, `org.freedesktop.login1`). If evdev is unavailable the app falls back to DBus idle time and simply skips activity-based auto-stop until input becomes readable.
+- System audio detection uses `parec` against the default monitor source (`@DEFAULT_MONITOR@`).
+- On Wayland, support depends on the compositor. KDE Plasma and GNOME are the tested environments.
 
 ### <ins>So for all the platforms make sure to disable "native" screensaver to prevent conflicts!</ins>
 
 After app startup check it's settings in tray menu:
 <img align="center" width="200" src="https://raw.githubusercontent.com/drlight17/ribbons-electron/refs/heads/main/3.png">
 
+## Building from source
 
+Install the platform build dependencies. On Arch/CachyOS, Debian/Ubuntu the helper script covers the common packages:
 
-## For developers
-Build depends on the platform as it uses the system idle detect function.
-
-For Windows:
-```
-choco install python312 visualstudio2019community visualstudio2019-workload-nativedesktop visualstudio2019buildtools windows-sdk-10.0
-pip install setuptools
-```
-For Linux:
-```
-apt install libxss-dev pkg-config libusb-1.0-0-dev libpipewire-0.3-dev libx11-dev libpulse-dev
-```
-Platform independent steps:
-```
-git clone https://github.com/drlight17/ribbons-electron
-cd ./ribbons-electron
+```bash
 chmod +x ./prepare.sh
 ./prepare.sh
 ```
-To run dev app use:
-```
-npm start
-```
-In dev mode config path includes '-dev'
 
-To build all current platform distributives at once use:
+Then:
+
+```bash
+npm run dev        # development
+npm run build      # platform bundles
+npm run help       # all build commands and paths
 ```
-npm run build-xxx
-```
-where `xxx` could be `win`, `mac` or `linux`
-Or you can build specific dist. For example linux rpm package:
-```
+
+Build helpers from the original project are still available:
+
+```bash
+npm run build-json
+npm run build-deb
 npm run build-rpm
+npm run build-AppImage
+npm run build-targz
+npm run build-exe
+npm run build-msi
+npm run build-zip
+npm run build-dmg
+npm run build-zip-mac
+npm run build-linux   # rpm + deb + tar.gz + AppImage
+npm run build-win     # zip + msi + nsis
+npm run build-mac     # dmg + zip
 ```
-If there are any module errors try to `npx electron-rebuild` before every `npm start` or `npm run build-`.
 
-Also check [package.json](package.json)
+`npm run block` creates `UPDATE_BLOCK` before a build; `npm run unblock` removes it.
 
+### Updater signing
 
-## Special thanks to:
-- [madve2](https://github.com/madve2) for his [electron-screensaver-seed repo](https://github.com/madve2/electron-screensaver-seed) that was partly used to create initial Electron app
-- [fadyehabamer](https://github.com/fadyehabamer) for his [Ribbons-Screensaver repo](https://github.com/fadyehabamer/Ribbons-Screensaver) that is the basis for graphics (he "failed with PWA", I made it with Electron =))) )
-- [CilginSinek](https://github.com/CilginSinek) for his [electron-native-screenshare](https://github.com/CilginSinek/electron-native-screenshare) that is used since 1.0.0-RC1 for capture system sounds
+Tauri verifies update artifacts. The repository ships a placeholder key so development builds work without signing. For production self-updates:
 
-All rights belongs to their authors!
+1. Generate a key pair with `npx @tauri-apps/cli signer generate`.
+2. Replace `plugins.updater.pubkey` in `src-tauri/tauri.conf.json`.
+3. Set `TAURI_SIGNING_PRIVATE_KEY` (or `TAURI_SIGNING_PRIVATE_KEY_PATH`) (and its password `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`) when building.
+4. Publish `latest.json` and signed artifacts with each GitHub release.
+
+Until then, the version-check dialog still works and the **Yes** button opens the release page.
+
+## Architecture
+
+```
+ui/                 # HTML/CSS/JS renderer (ribbon engines, settings, update dialog)
+src-tauri/src/      # Rust backend
+  config.rs         # JSON store + defaults (same config.json keys)
+  windows.rs        # screensaver/settings windows, fullscreen, options IPC
+  tray.rs           # tray icon and dynamic menu
+  monitor.rs        # idle/fullscreen/activity loop
+  media.rs          # system audio RMS detection
+  active_window.rs  # cross-platform active-window/fullscreen detection
+  system_events.rs  # lock/suspend listeners and resume watchdog
+  autostart.rs      # startup integrations and app restart
+  updates.rs        # GitHub version checks and updater dialog
+legacy-electron/    # original Electron main process, kept for reference
+```
+
+The renderer talks to Rust through `ui/tauri-ipc.js`:
+
+- `send(event, payload)` → `renderer_message` command.
+- `on(event, handler)` → Tauri event listener.
+- Backend → window events: `send-options`, `send-stop`, `send-pause`, `show-close-btn`, `ribbons-settings-load`.
+
+## Special thanks to
+
+- [madve2](https://github.com/madve2) for the [electron-screensaver-seed repo](https://github.com/madve2/electron-screensaver-seed) that was partly used to create the initial Electron app.
+- [fadyehabamer](https://github.com/fadyehabamer) for the [Ribbons-Screensaver repo](https://github.com/fadyehabamer/Ribbons-Screensaver) that is the basis for the graphics.
+- [CilginSinek](https://github.com/CilginSinek) for [electron-native-screenshare](https://github.com/CilginSinek/electron-native-screenshare), which inspired the system-audio detection approach.
+
+All rights belong to their authors.

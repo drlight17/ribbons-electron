@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>About</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #0b0e16;
+      color: #e8ecf7;
+      display: flex;
+      flex-direction: column;
+      padding: 24px 28px;
+      user-select: none;
+    }
+    .header { display: flex; align-items: center; gap: 18px; }
+    .app-icon {
+      width: 96px;
+      height: 96px;
+      border-radius: 20px;
+      object-fit: contain;
+      flex: 0 0 auto;
+      filter: drop-shadow(0 8px 20px rgb(0 0 0 / 45%));
+    }
+    h1 { font-size: 23px; margin: 0 0 4px; }
+    .version { color: #8fb7ff; font-size: 15px; }
+    .description { color: #b9c2d8; line-height: 1.5; margin: 20px 0; }
+    .meta { display: grid; grid-template-columns: 88px 1fr; gap: 9px 14px; font-size: 14px; }
+    .meta .label { color: #8e99b3; }
+    .meta .value { color: #e8ecf7; overflow-wrap: anywhere; }
+    .link { color: #8fb7ff; background: none; border: 0; padding: 0; font: inherit; cursor: pointer; text-align: left; }
+    .link:hover { text-decoration: underline; }
+    .actions { margin-top: auto; display: flex; justify-content: flex-end; gap: 10px; }
+    button.action {
+      border: 1px solid #2c3448;
+      background: #151b28;
+      color: #e8ecf7;
+      border-radius: 8px;
+      padding: 9px 16px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    button.action:hover { background: #1e2638; }
+    button.action.primary { background: #2867e8; border-color: #2867e8; }
+    button.action.primary:hover { background: #3b77f0; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img class="app-icon" src="icon.png" alt="Ribbons Screensaver" />
+    <div>
+      <h1 id="appName">Ribbons Screensaver</h1>
+      <div class="version" id="version"></div>
+    </div>
+  </div>
+  <p class="description" id="description" data-i18n="about_description">
+    Windows-like Ribbons Screensaver with modern and classic ribbon engines,
+    multi-monitor support and system-aware media detection.
+  </p>
+  <div class="meta">
+    <div class="label" data-i18n="about_author">Author</div>
+    <div class="value" id="author"></div>
+    <div class="label" data-i18n="about_website">Website</div>
+    <div class="value"><button class="link" id="website"></button></div>
+    <div class="label" data-i18n="about_source">Source</div>
+    <div class="value"><button class="link" id="source"></button></div>
+    <div class="label" data-i18n="about_license">License</div>
+    <div class="value" id="license"></div>
+  </div>
+  <div class="actions">
+    <button class="action primary" id="close" data-i18n="about_close">Close</button>
+  </div>
+  <script type="module" src="about.js"></script>
+</body>
+</html>
