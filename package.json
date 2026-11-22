@@ -1,0 +1,165 @@
+{
+  "name": "ribbons-electron",
+  "desktopName": "com.electron.ribbons-electron.desktop",
+  "productName": "Ribbons screensaver",
+  "description": "Famous Ribbons screensaver made with js and Electron wrapped for multi platform support",
+  "keywords": [
+    "windows",
+    "ribbons",
+    "screensaver",
+    "electron"
+  ],
+  "type": "module",
+  "icon": "icon.png",
+  "main": "./main.js",
+  "version": "1.0.1",
+  "author": "Yuri Samoilov <root@drlight.fun>",
+  "homepage": "https://github.com/drlight17/ribbons-electron",
+  "apiLink": "https://api.github.com/repos/drlight17/ribbons-electron",
+  "build": {
+    "appId": "com.electron.ribbons-electron",
+    "productName": "Ribbons screensaver",
+    "artifactName": "Ribbons.screensaver-${version}.${ext}",
+    "asar": true,
+    "publish": {
+      "provider": "github",
+      "owner": "drlight17",
+      "repo": "ribbons-electron"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": true,
+      "allowElevation": true
+    },
+    "msi": {
+      "oneClick": true,
+      "perMachine": true
+    },
+    "mac": {
+      "category": "public.app-category.entertainment",
+      "artifactName": "Ribbons.screensaver-${version}-mac-${arch}.${ext}",
+      "icon": "icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "asarUnpack": [
+        "./icon.png",
+        "./iconPaused.png"
+      ]
+    },
+    "win": {
+      "icon": "icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "msi",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "asarUnpack": [
+        "./icon.ico",
+        "./iconPaused.ico",
+        "./UPDATE_BLOCK"
+      ]
+    },
+    "linux": {
+      "icon": "icon.icns",
+      "category": "Multimedia",
+      "syncDesktopName": true,
+      "target": [
+        {
+          "target": "tar.gz",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "rpm",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "asarUnpack": [
+        "./icon.png",
+        "./iconPaused.png",
+        "./UPDATE_BLOCK"
+      ]
+    }
+  },
+  "scripts": {
+    "help": "node scripts-help.mjs",
+    "block": "node -e \"require('fs').writeFileSync('UPDATE_BLOCK','')\"",
+    "unblock": "node -e \"try{require('fs').unlinkSync('UPDATE_BLOCK')}catch(e){}\"",
+    "build-rpm": "npm run block && electron-builder --linux rpm && npm run unblock",
+    "build-deb": "npm run block && electron-builder --linux deb && npm run unblock",
+    "build-targz": "npm run block && electron-builder --linux tar.gz && npm run unblock",
+    "build-AppImage": "electron-builder --linux AppImage",
+    "build-exe": "electron-builder --windows nsis",
+    "build-msi": "npm run block && electron-builder --win msi && npm run unblock",
+    "build-zip": "npm run block && electron-builder --windows zip && npm run unblock",
+    "build-zip-mac": "npm run block && electron-builder --mac zip && npm run unblock",
+    "build-dmg": "npm run block && electron-builder --mac dmg && npm run unblock",
+    "build-win": "npm run build-zip && npm run build-msi && npm run build-exe",
+    "build-mac": "npm run build-dmg && npm run build-zip-mac",
+    "build-linux": "npm run build-rpm && npm run build-deb && npm run build-targz && npm run build-AppImage",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "@deepfocus/get-windows": "latest",
+    "@electron/packager": "latest",
+    "dbus-next": "latest",
+    "electron-fetch": "latest",
+    "electron-native-screenshare": "latest",
+    "electron-prompt": "latest",
+    "electron-store": "latest",
+    "electron-updater": "^4.0.0",
+    "glasstron": "latest",
+    "node-desktop-idle-v2": "latest",
+    "node-hid": "latest",
+    "semver": "latest"
+  },
+  "devDependencies": {
+    "electron": "^31",
+    "electron-builder": "latest",
+    "electron-rebuild": "^3.2.9"
+  }
+}
