@@ -19,7 +19,7 @@ jobs:
       - name: Checkout Destination Repo
         uses: actions/checkout@v4
         with:
-          repository: 'drlight17/ribbons-electron-landing'
+          repository: 'drlight17/ribbons-landing'
           path: 'landing-repo'
           token: ${{ secrets.SYNC_REPO_TOKEN }}
 
